@@ -5,7 +5,7 @@ var journal = require("./datajournal.js");
 
 var app = express();
 app.use(bodyParser.json());
-app.use(express.static("."));
+//app.use(express.static("."));
 
 // Post data
 app.post("/gvyhome/data", function(req, res) {
