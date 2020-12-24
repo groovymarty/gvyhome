@@ -1,0 +1,24 @@
+{
+  "name": "gvyhome",
+  "version": "1.0.0",
+  "description": "Groovymarty home telemetry server",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/groovymarty/gvyhome.git"
+  },
+  "author": "Marty Sauser",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/groovymarty/gvyhome/issues"
+  },
+  "homepage": "https://github.com/groovymarty/gvyhome#readme",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "express": "^4.15.4",
+    "readline": "^1.3.0"
+  }
+}
