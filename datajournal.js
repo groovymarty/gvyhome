@@ -1,24 +1,43 @@
-var fs = require('fs');
-var readline = require('readline');
+const fs = require('fs');
+const readline = require('readline');
+const db = require('./database.js');
 
-var journalFileName = "datajournal";
-var ws = null;
-var journalTimer = null;
+const journalFileName = "datajournal";
+let ws = null;
+let journalTimer = null;
 
-// add record to journal
-function addRecord(rec) {
+// add record or array of records to journal
+// return null if success, else return error message string
+function addRecords(recs) {
+  if (!Array.isArray(recs)) {
+    recs = [recs];
+  }
   stopJournalTimer();
   startWriteJournal();
-  writeJournal(rec);
+  let firstErrMsg = null;
+  recs.forEach(rec => {
+    const errMsg = db.validateRecord(rec);
+    if (errMsg) {
+      console.log("bad record received, "+errMsg);
+      if (!firstErrMsg) {
+        firstErrMsg = errMsg;
+      }
+    } else {
+      // must write to journal first because db adds extra fields like tm
+      writeJournal(rec);
+      db.addRecord(rec);
+    }
+  });
   flushJournal();
   startJournalTimer();
+  return firstErrMsg;
 }
 
 // open journal file if not already open and start buffering
 function startWriteJournal() {
   if (!ws) {
     ws = fs.createWriteStream(journalFileName, {flags:'a'});
-    ws.on('error', function(err) {
+    ws.on('error', err => {
       console.log(journalFileName+" write failed with "+err.code);
       stopJournalTimer();
       ws.end();
@@ -53,10 +72,9 @@ function stopJournalTimer() {
 // start journal timer, close journal file after 60 seconds of inactivity
 function startJournalTimer() {
   stopJournalTimer();
-  journalTimer = setTimeout(function() {
+  journalTimer = setTimeout(() => {
     journalTimer = null;
     if (ws) {
-      console.log("closing journal");
       ws.end();
       ws = null;
     }
@@ -66,34 +84,31 @@ function startJournalTimer() {
 // read journal and apply all changes to cache
 function readJournal() {
   if (fs.existsSync(journalFileName)) {
-    var lineNum = 1;
-    var rl = readline.createInterface({
+    let lineNum = 0;
+    const rl = readline.createInterface({
       input: fs.createReadStream(journalFileName),
       crlfDelay: Infinity
     });  
-    rl.on('error', function(err) {
+    rl.on('error', err => {
       console.log(journalFileName+" read failed with "+err.code);
     });
-    rl.on('line', function(line) {
+    rl.on('line', line => {
+      lineNum += 1;
       try {
-        var chg = JSON.parse(line);
-        if (typeof chg === "object" && chg.id) {
-          var id = chg.id;
-          delete chg.id;
-          delete chg.userId;
-          delete chg.ts;
-          applyToCache(id, chg);
+        const rec = JSON.parse(line);
+        const errMsg = db.validateRecord(rec);
+        if (errMsg) {
+          console.log(journalFileName+" bad record on line "+lineNum+": "+errMsg);
         } else {
-          console.log("Meta chg ignored, not an object or lacks id, line "+lineNum);
+          db.addRecord(rec);
         }
       } catch (e) {
         console.log(journalFileName+" JSON parse error on line "+lineNum);
+        console.log(e);
       }
-      lineNum += 1;
     });
-    rl.on('close', function() {
-      console.log(journalFileName+ " read finished");
-      console.log("meta change cache: "+(Object.keys(cache).length)+" entries");
+    rl.on('close', () => {
+      console.log(journalFileName+ " read finished, "+lineNum+" lines");
     });
   } else {
     console.log(journalFileName+" not found, skipping");
@@ -101,6 +116,6 @@ function readJournal() {
 }
 
 module.exports = {
-  addRecord: addRecord,
+  addRecords: addRecords,
   readJournal: readJournal
 };
