@@ -102,7 +102,6 @@ function addRecord(rec) {
       readDayFile(day);
     }
     // ignore duplicates
-    // duplicates are common because raspberry posts buffer of recent data along with new record
     if (!findRecord(day.recs, tm, rec.src)) {
       // add parsed time to record, but please remove before saving to file
       rec.tm = tm;

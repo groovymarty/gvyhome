@@ -5,6 +5,7 @@ const db = require('./database.js');
 const journalFileName = "datajournal";
 let ws = null;
 let journalTimer = null;
+let rotateRequested = false;
 
 // add record or array of records to journal
 // return null if success, else return error message string
@@ -69,7 +70,8 @@ function stopJournalTimer() {
   }
 }
 
-// start journal timer, close journal file after 60 seconds of inactivity
+// start journal timer, close journal file after 10 seconds of inactivity
+// rotate journal after closing, if requested
 function startJournalTimer() {
   stopJournalTimer();
   journalTimer = setTimeout(() => {
@@ -77,11 +79,15 @@ function startJournalTimer() {
     if (ws) {
       ws.end();
       ws = null;
+      if (rotateRequested) {
+        rotateRequested = false;
+        rotateJournal();
+      }
     }
-  }, 60000);
+  }, 10000);
 }
  
-// read journal and apply all changes to cache
+// read journal and populate database
 function readJournal() {
   if (fs.existsSync(journalFileName)) {
     let lineNum = 0;
@@ -115,7 +121,38 @@ function readJournal() {
   }
 }
 
+// request rotate
+function requestRotate() {
+  rotateRequested = true;
+  startJournalTimer();
+}
+
+// rotate journal
+// rename current journal file to .1, current .1 file to .2, and so on up to .9
+// create empty journal file for new records going forward
+// what's the point of all this?  i'm reluctant to delete data!
+// so keep journal files around for awhile, even after the records are incorporated into the database
+// just in case..
+function rotateJournal() {
+  // delete file .9, if it exists
+  fs.rmSync(journalFileName+".9", {force: true});
+  // rename .8 to .9, .7 to .8, and so through .1 to .2
+  for (let fileNum=8; fileNum >= 1; fileNum--) {
+    if (fs.existsSync(journalFileName+"."+fileNum)) {
+      fs.renameSync(journalFileName+"."+fileNum, journalFileName+"."+(fileNum+1));
+    }
+  }
+  // rename current journal to .1
+  if (fs.existsSync(journalFileName)) {
+    fs.renameSync(journalFileName, journalFileName+".1");
+  }
+  // create empty journal file
+  fs.closeSync(fs.openSync(journalFileName, 'w'));
+  console.log("journal rotated");
+}
+
 module.exports = {
   addRecords: addRecords,
-  readJournal: readJournal
+  readJournal: readJournal,
+  requestRotate: requestRotate
 };

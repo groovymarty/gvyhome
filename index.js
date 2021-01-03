@@ -28,10 +28,18 @@ app.listen(port, function() {
   console.log("Server listening on port "+port);
 });
 
-// for now, write database once a minute
-// really this is only needed once a day, just after midnight
-// TODO: clear journal after writing database
-// TODO: upload database files to Dropbox
+// once a minute service
+let prevEstHour = 999;
 setInterval(() => {
-  db.writeAllChanges();
+  const date = new Date();
+  const utcHour = date.getUTCHours();
+  const estHour = (utcHour + 24 - 6) % 24;
+  if (estHour != prevEstHour) {
+    prevEstHour = estHour;
+    if (estHour == 1) {
+      // it is 1:00 AM in Connecticut!
+      db.writeAllChanges();
+      journal.requestRotate();
+    }
+  }
 }, 60000);
