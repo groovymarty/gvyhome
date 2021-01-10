@@ -1,17 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const thyme = require("./thyme");
 
 const years = [];
-const timePat = /^20(\d{2})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})\.(\d{3})\d*/;
-const monthSum = [];
-const monthSumLy = [];
-const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-let sum = 0;
-daysInMonth.forEach((n, i) => {
-  monthSum.push(sum);
-  monthSumLy.push(sum + ((i >= 2) ? 1 : 0));
-  sum += n;
-});
 
 // validate record
 // check fields for known souces, but allow unrecognized sources
@@ -21,7 +12,7 @@ function validateRecord(rec) {
     return "not an object";
   } else if (typeof rec.t !== 'string') {
     return "no time";
-  } else if (!parseTime(rec.t)) {
+  } else if (!thyme.parseTime(rec.t)) {
     return "bad time format";
   } else if (typeof rec.src !== 'string') {
     return "no source";
@@ -35,53 +26,9 @@ function validateRecord(rec) {
   return null;
 }
 
-// parse time string
-// return time structure or null if invalid
-// all times are in Eastern Standard Time, ignore daylight savings time to make math easier
-function parseTime(t) {
-  const mr = t.match(timePat);
-  if (mr) {
-    const y = parseInt(mr[1]);
-    const tm = {
-      year: y + 2000,
-      month: parseInt(mr[2]),
-      day: parseInt(mr[3]),
-      hour: parseInt(mr[4]),
-      min: parseInt(mr[5]),
-      sec: parseInt(mr[6]),
-      msec: parseInt(mr[7])
-    };
-    const ym1 = y ? y-1 : 0;
-    const myMonthSum = (!y || y % 4) ? monthSum : monthSumLy; //2000 wasn't a leap year
-    const days = ym1*365 + Math.floor(ym1 / 4) + myMonthSum[tm.month - 1] + tm.day - 1;
-    const secs = ((days*24 + tm.hour)*60 + tm.min)*60 + tm.sec;
-    // time in milliseconds since January 1, 2000 EST
-    tm.ms = secs*1000 + tm.msec;
-    return tm;
-  }
-  // time is invalid
-  return null;
-}
-
-// return date string in YYYY/MM/DD format
-function formatDate(tm) {
-  return tm.year +
-    (tm.month < 10 ? "/0" : "/") + tm.month +
-    (tm.day < 10 ? "/0" : "/") + tm.day;
-}
-
-// return time string in HH:MM:SS.FFF format
-// time is Eastern Standard Time, without DST adjustment
-function formatTime(tm) {
-  return (tm.hour < 10 ? "0" : "") + tm.hour +
-    (tm.min < 10 ? ":0" : ":") + tm.min +
-    (tm.sec < 10 ? ":0" : ":") + tm.sec + "." +
-    (tm.msec + 1000).toString().substring(1);
-}
-
 // add record to database
 function addRecord(rec) {
-  const tm = parseTime(rec.t);
+  const tm = thyme.parseTime(rec.t);
   if (tm) {
     if (!years[tm.year]) {
       years[tm.year] = {months: [], tm: tm};
@@ -111,7 +58,7 @@ function addRecord(rec) {
       if (day.recs.length > 1) {
         const oldLastRec = day.recs[day.recs.length - 2];
         if (tm.ms < oldLastRec.tm.ms) {
-          console.log("resorting array for "+formatDate(tm));
+          console.log("resorting array for "+thyme.formatDate(tm));
           day.recs.sort(compareRecords);
         }
       }
