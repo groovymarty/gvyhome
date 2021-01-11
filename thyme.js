@@ -18,7 +18,7 @@ daysInMonth.forEach((n, i) => {
 // parse time string
 // return time structure or null if invalid
 function parseTime(t) {
-  const mr = t.match(timePat);
+  const mr = typeof t === 'string' && t.match(timePat);
   if (mr) {
     const y = parseInt(mr[1]);
     const tm = {
@@ -42,12 +42,11 @@ function parseTime(t) {
   return null;
 }
 
-// make time structure from specified time in milliseconds
-function makeTime(ms) {
-  const tm = {
-    ms: ms,
-    msec: ms % 1000
-  };
+// set time structure to specified time in milliseconds
+// return time structure
+function setTime(tm, ms) {
+  tm.ms = ms;
+  tm.msec = ms % 1000;
   const s = Math.floor(ms / 1000);
   tm.sec = s % 60;
   const m = Math.floor(s / 60);
@@ -72,11 +71,16 @@ function makeTime(ms) {
   return tm;
 }
 
-// return date string in YYYY/MM/DD format
+// make time structure from specified time in milliseconds
+function makeTime(ms) {
+  return setTime({}, ms);
+}
+
+// return date string in YYYY-MM-DD format
 function formatDate(tm) {
   return tm.year +
-    (tm.month < 10 ? "/0" : "/") + tm.month +
-    (tm.day < 10 ? "/0" : "/") + tm.day;
+    (tm.month < 10 ? "-0" : "-") + tm.month +
+    (tm.day < 10 ? "-0" : "-") + tm.day;
 }
 
 // return time string in HH:MM:SS.FFF format
@@ -88,9 +92,16 @@ function formatTime(tm) {
     (tm.msec + 1000).toString().substring(1);
 }
 
+// return date and time string
+function formatDateTime(tm) {
+  return formatDate(tm) + " " + formatTime(tm);
+}
+
 module.exports = {
   parseTime: parseTime,
+  setTime: setTime,
   makeTime: makeTime,
   formatTime: formatTime,
-  formatDate: formatDate
+  formatDate: formatDate,
+  formatDateTime: formatDateTime
 };

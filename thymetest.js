@@ -41,23 +41,23 @@ while (true) {
     if (t) {
         const yes = thyme.makeTime(t-1);
         if (yes.hour != 23 || yes.min != 59 || yes.sec != 59 || yes.msec != 999) {
-            console.log("today is", thyme.formatDate(tm), thyme.formatTime(tm));
-            console.log("yesterday is", thyme.formatDate(yes), thyme.formatTime(yes), "expected 23:59:59.999");
+            console.log("today is", thyme.formatDateTime(tm));
+            console.log("yesterday is", thyme.formatDateTime(yes), "expected 23:59:59.999");
         }
         if (tm.day==1) {
             if (tm.month==1) {
                 if (yes.month != 12) {
-                    console.log("today is Jan 1 but yesterday is", thyme.formatDate(yes), thyme.formatTime(yes), "expected Dec");
+                    console.log("today is Jan 1 but yesterday is", thyme.formatDateTime(yes), "expected Dec");
                 }
                 if (yes.year != tm.year-1) {
-                    console.log("today is Jan 1 but yesterday is", thyme.formatDate(yes), thyme.formatTime(yes), "expected prev year");
+                    console.log("today is Jan 1 but yesterday is", thyme.formatDateTime(yes), "expected prev year");
                 }
             } else {
                 if (yes.month != tm.month-1) {
-                    console.log("today is 1st but yesterday is", thyme.formatDate(yes), thyme.formatTime(yes), "expected prev month");                    
+                    console.log("today is 1st but yesterday is", thyme.formatDateTime(yes), "expected prev month");                    
                 }
                 if (yes.year != tm.year) {
-                    console.log("today is 1st but yesterday is", thyme.formatDate(yes), thyme.formatTime(yes), "expected same year");                    
+                    console.log("today is 1st but yesterday is", thyme.formatDateTime(yes), "expected same year");                    
                 }
             }
         }

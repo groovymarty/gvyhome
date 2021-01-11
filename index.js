@@ -13,13 +13,32 @@ journal.readJournal();
 var app = express();
 app.use(bodyParser.json());
 
-// Post data
+// post data
 app.post("/gvyhome/data", function(req, res) {
   const errMsg = journal.addRecords(req.body);
   res.set("Content-Type", "text/plain");
   if (errMsg) {
     res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).end();
   }
+});
+
+// operations
+app.get("/gvyhome/op/loaddays", function(req, res) {
+  const tStart = (req.query.tstart || "") + " 00:00:00.000";
+  const tEnd = (req.query.tend || "") + " 00:00:00.000";
+  console.log("loadDays: tStart", tStart, "tEnd", tEnd);
+  const errMsg = db.loadDays(tStart, tEnd);
+  if (errMsg) {
+    res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).end();
+  }
+});
+
+app.get("/gvyhome/op/writeallchanges", function(req, res) {
+  db.writeAllChanges();
   res.status(200).end();
 });
 

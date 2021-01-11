@@ -26,22 +26,28 @@ function validateRecord(rec) {
   return null;
 }
 
+// return day for specified timestamp, create if necessary
+function findOrAddDay(tm) {
+  if (!years[tm.year]) {
+    years[tm.year] = {months: [], tm: tm};
+  }
+  const year = years[tm.year];
+  if (!year.months[tm.month]) {
+    year.months[tm.month] = {days: [], tm: tm};
+  }
+  const month = year.months[tm.month];
+  if (!month.days[tm.day]) {
+    // TODO: day should be an class with a constructor
+    month.days[tm.day] = {recs: [], tm: tm, loaded: false, changed: false, version: 0, maInpStart: 0};
+  }
+  return month.days[tm.day];
+}
+
 // add record to database
 function addRecord(rec) {
   const tm = thyme.parseTime(rec.t);
   if (tm) {
-    if (!years[tm.year]) {
-      years[tm.year] = {months: [], tm: tm};
-    }
-    const year = years[tm.year];
-    if (!year.months[tm.month]) {
-      year.months[tm.month] = {days: [], tm: tm};
-    }
-    const month = year.months[tm.month];
-    if (!month.days[tm.day]) {
-      month.days[tm.day] = {recs: [], tm: tm, loaded: false, changed: false};
-    }
-    const day = month.days[tm.day];
+    const day = findOrAddDay(tm);
     // make sure we've loaded any records already saved to file for this day
     if (!day.loaded) {
       // note readDayFile calls addRecord.. must set loaded first to avoid infinite recursion!
@@ -93,6 +99,7 @@ function writeAllChanges() {
     year.months.forEach(month => {
       month.days.forEach(day => {
         if (day.changed) {
+          day.version += 1;
           writeDayFile(day);
           day.changed = false;
         }
@@ -116,9 +123,13 @@ function writeDayFile(day) {
   const monthPath = makeMonthPath(day.tm);
   fs.mkdirSync(monthPath, {recursive: true});
   const dayPath = makeDayPath(day.tm);
-  const cleanRecs = day.recs.map(cleanRecord);
+  const dayToFile = {
+    recs: day.recs.map(cleanRecord),
+    version: day.version,
+    maInpStart: day.maInpStart
+  };
   console.log("writing", dayPath);
-  fs.writeFileSync(dayPath, JSON.stringify(cleanRecs, null, 1));
+  fs.writeFileSync(dayPath, JSON.stringify(dayToFile, null, 1));
 }
 
 // read day records from file, if file exists
@@ -127,11 +138,37 @@ function readDayFile(day) {
   if (fs.existsSync(dayPath)) {
     try {
       console.log("reading", dayPath);
-      const recs = JSON.parse(fs.readFileSync(dayPath));
-      if (Array.isArray(recs)) {
+      const dayFromFile = JSON.parse(fs.readFileSync(dayPath));
+      if (Array.isArray(dayFromFile)) {
+        // temporary for backwards compat, day file is array of records
+        // TODO: remove once all day files are converted
+        const recs = dayFromFile;
         recs.forEach(rec => addRecord(rec));
+      } else if (typeof dayFromFile === 'object') {
+        if (Array.isArray(dayFromFile.recs)) {
+          if (!day.recs.length) {
+            // day.recs is empty, push all records from file
+            // assume file records are sorted
+            // changed flag will not be set
+            Array.prototype.push.apply(day.recs, dayFromFile.recs);
+          } else {
+            // day.recs is nonempty, add records individually
+            // this is necessary to keep day.recs sorted correctly
+            // changed flag will be set
+            dayFromFile.recs.forEach(rec => addRecord(rec));
+          }
+        } else {
+          console.log("no recs array in "+dayPath);
+        }
+        // if day file has these properties, set them in database
+        if ('version' in dayFromFile) {
+          day.version = dayfromFile.version;
+        }
+        if ('manInpStart' in dayFromFile) {
+          day.manInpStart = dayFromFile.manInpStart;
+        }
       } else {
-        console.log("JSON is not an array in "+dayPath);
+        console.log("JSON is not an object in "+dayPath);
       }
     } catch (e) {
       console.log("JSON parse error in "+dayPath);
@@ -140,8 +177,28 @@ function readDayFile(day) {
   }
 }
 
+// load range of days into database
+// return null if success, else return error message string
+function loadDays(tStart, tEnd) {
+  const tm = thyme.parseTime(tStart);
+  if (!tm) {
+    return "bad start time";
+  }
+  const tmEnd = thyme.parseTime(tEnd);
+  if (!tmEnd) {
+    return "bad end time";
+  }
+  while (tm.ms < tmEnd.ms) {
+    console.log("loading day "+thyme.formatDateTime(tm));
+    readDayFile(findOrAddDay(tm));
+    thyme.setTime(tm, tm.ms + 24 * 60 * 60 * 1000);
+  }
+  return null;
+}
+
 module.exports = {
   validateRecord: validateRecord,
   addRecord: addRecord,
-  writeAllChanges: writeAllChanges
+  writeAllChanges: writeAllChanges,
+  loadDays: loadDays
 };
