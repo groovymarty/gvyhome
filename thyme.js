@@ -32,7 +32,7 @@ function parseTime(t) {
     };
     const ym1 = y ? y-1 : 0;
     const myMonthSum = (!y || y % 4) ? monthSum : monthSumLy; //2000 wasn't a leap year
-    const days = ym1*365 + Math.floor(ym1 / 4) + myMonthSum[tm.month - 1] + tm.day - 1;
+    const days = y*365 + Math.floor(ym1 / 4) + myMonthSum[tm.month - 1] + tm.day - 1;
     const secs = ((days*24 + tm.hour)*60 + tm.min)*60 + tm.sec;
     // time in milliseconds since January 1, 2000 EST
     tm.ms = secs*1000 + tm.msec;
@@ -54,14 +54,14 @@ function setTime(tm, ms) {
   const h = Math.floor(m / 60);
   tm.hour = h % 24;
   let d = Math.floor(h / 24);
-  let y = Math.floor(d / 365);
-  d -= y * 365;
-  const ym1 = y ? y-1 : 0;
-  const nly = Math.floor(ym1 / 4);
-  d -= nly;
-  if (d < 0) {
-    y -= 1;
-    d += 365;
+  let y = 0;
+  if (d >= 365) {
+    d -= 365; //subtract year 2000
+    const nly = Math.floor(d / 1461); //number of complete leap year cycles
+    d -= nly * 1461;
+    y = d < 1095 ? Math.floor(d / 365) : 3; //year in current leap year cycle, 0-3
+    d -= y * 365;
+    y += (nly * 4) + 1;
   }
   tm.year = y + 2000;
   const myMonthSum = (!y || y % 4) ? monthSum : monthSumLy; //2000 wasn't a leap year

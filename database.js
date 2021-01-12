@@ -29,16 +29,19 @@ function validateRecord(rec) {
 // return day for specified timestamp, create if necessary
 function findOrAddDay(tm) {
   if (!years[tm.year]) {
-    years[tm.year] = {months: [], tm: tm};
+    years[tm.year] = {months: [], tm: Object.assign({}, tm)};
   }
   const year = years[tm.year];
   if (!year.months[tm.month]) {
-    year.months[tm.month] = {days: [], tm: tm};
+    year.months[tm.month] = {days: [], tm: Object.assign({}, tm)};
   }
   const month = year.months[tm.month];
   if (!month.days[tm.day]) {
-    // TODO: day should be an class with a constructor
-    month.days[tm.day] = {recs: [], tm: tm, loaded: false, changed: false, version: 0, maInpStart: 0};
+    // TODO: day should be a class with a constructor
+    month.days[tm.day] = {
+      recs: [], tm: Object.assign({}, tm),
+      loaded: false, changed: false, version: 0, maInpStart: 0
+    };
   }
   return month.days[tm.day];
 }
@@ -50,9 +53,7 @@ function addRecord(rec) {
     const day = findOrAddDay(tm);
     // make sure we've loaded any records already saved to file for this day
     if (!day.loaded) {
-      // note readDayFile calls addRecord.. must set loaded first to avoid infinite recursion!
-      day.loaded = true;
-      readDayFile(day);
+        loadDay(day);
     }
     // ignore duplicates
     if (!findRecord(day.recs, tm, rec.src)) {
@@ -82,7 +83,7 @@ function findRecord(recs, tm, src) {
 
 // compare records for sorting
 function compareRecords(r1, r2) {
-  return r2.tm.ms - r1.tm.ms;
+  return r1.tm.ms - r2.tm.ms;
 }
 
 // return copy of record with fields removed that should not be saved to file
@@ -118,10 +119,20 @@ function makeDayPath(tm) {
   return path.join(makeMonthPath(tm), (tm.day + 100).toString().substring(1));
 }
 
+// make directory recursive
+// recursive option in fs.mkdirSync accomplishes same thing, but not supported
+// in some older versions of node.js
+function mkdirRecursive(dir) {
+  if (dir !== "." && dir !== path.sep && !fs.existsSync(dir)) {
+    mkdirRecursive(path.dirname(dir));
+    fs.mkdirSync(dir);
+  }
+}
+
 // write day records to file
 function writeDayFile(day) {
   const monthPath = makeMonthPath(day.tm);
-  fs.mkdirSync(monthPath, {recursive: true});
+  mkdirRecursive(monthPath);
   const dayPath = makeDayPath(day.tm);
   const dayToFile = {
     recs: day.recs.map(cleanRecord),
@@ -146,23 +157,14 @@ function readDayFile(day) {
         recs.forEach(rec => addRecord(rec));
       } else if (typeof dayFromFile === 'object') {
         if (Array.isArray(dayFromFile.recs)) {
-          if (!day.recs.length) {
-            // day.recs is empty, push all records from file
-            // assume file records are sorted
-            // changed flag will not be set
-            Array.prototype.push.apply(day.recs, dayFromFile.recs);
-          } else {
-            // day.recs is nonempty, add records individually
-            // this is necessary to keep day.recs sorted correctly
-            // changed flag will be set
-            dayFromFile.recs.forEach(rec => addRecord(rec));
-          }
+          // note this will set changed flag for day unless record is already loaded
+          dayFromFile.recs.forEach(rec => addRecord(rec));
         } else {
           console.log("no recs array in "+dayPath);
         }
         // if day file has these properties, set them in database
         if ('version' in dayFromFile) {
-          day.version = dayfromFile.version;
+          day.version = dayFromFile.version;
         }
         if ('manInpStart' in dayFromFile) {
           day.manInpStart = dayFromFile.manInpStart;
@@ -172,9 +174,16 @@ function readDayFile(day) {
       }
     } catch (e) {
       console.log("JSON parse error in "+dayPath);
-      //console.log(e);
+      console.log(e);
     }
   }
+}
+
+// load day file
+function loadDay(day) {
+  // must set loaded flag before calling readDayFile to avoid infinite recursion!
+  day.loaded = true;
+  readDayFile(day);
 }
 
 // load range of days into database
@@ -189,8 +198,7 @@ function loadDays(tStart, tEnd) {
     return "bad end time";
   }
   while (tm.ms < tmEnd.ms) {
-    console.log("loading day "+thyme.formatDateTime(tm));
-    readDayFile(findOrAddDay(tm));
+    loadDay(findOrAddDay(tm));
     thyme.setTime(tm, tm.ms + 24 * 60 * 60 * 1000);
   }
   return null;
