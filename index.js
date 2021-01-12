@@ -62,3 +62,10 @@ setInterval(() => {
     }
   }
 }, 60000);
+
+// catch interrupt signal, write database to files before exiting
+process.on('SIGINT', function() {
+    journal.closeJournal();
+    db.writeAllChanges();
+    process.exit();
+});

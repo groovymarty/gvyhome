@@ -62,6 +62,18 @@ function flushJournal() {
   }
 }
 
+// close journal file and rotate files if requested
+function closeJournal() {
+  if (ws) {
+    ws.end();
+    ws = null;
+    if (rotateRequested) {
+      rotateRequested = false;
+      rotateJournal();
+    }
+  }
+}
+
 // stop journal timer if it is running
 function stopJournalTimer() {
   if (journalTimer) {
@@ -74,17 +86,7 @@ function stopJournalTimer() {
 // rotate journal after closing, if requested
 function startJournalTimer() {
   stopJournalTimer();
-  journalTimer = setTimeout(() => {
-    journalTimer = null;
-    if (ws) {
-      ws.end();
-      ws = null;
-      if (rotateRequested) {
-        rotateRequested = false;
-        rotateJournal();
-      }
-    }
-  }, 10000);
+  journalTimer = setTimeout(closeJournal, 10000);
 }
  
 // read journal and populate database
@@ -154,5 +156,6 @@ function rotateJournal() {
 module.exports = {
   addRecords: addRecords,
   readJournal: readJournal,
+  closeJournal: closeJournal,
   requestRotate: requestRotate
 };
