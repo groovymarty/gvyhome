@@ -26,8 +26,8 @@ app.post("/gvyhome/data", function(req, res) {
 
 // operations
 app.get("/gvyhome/op/loaddays", function(req, res) {
-  const tStart = (req.query.tstart || "") + " 00:00:00.000";
-  const tEnd = (req.query.tend || "") + " 00:00:00.000";
+  const tStart = (req.query.start || "") + " 00:00:00.000";
+  const tEnd = (req.query.end || "") + " 00:00:00.000";
   console.log("loadDays: tStart", tStart, "tEnd", tEnd);
   const errMsg = db.loadDays(tStart, tEnd);
   if (errMsg) {
@@ -65,6 +65,7 @@ setInterval(() => {
 
 // catch interrupt signal, write database to files before exiting
 process.on('SIGINT', function() {
+    journal.stopJournalTimer();
     journal.closeJournal();
     db.writeAllChanges();
     process.exit();

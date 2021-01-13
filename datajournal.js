@@ -67,10 +67,10 @@ function closeJournal() {
   if (ws) {
     ws.end();
     ws = null;
-    if (rotateRequested) {
-      rotateRequested = false;
-      rotateJournal();
-    }
+  }
+  if (rotateRequested) {
+    rotateRequested = false;
+    rotateJournal();
   }
 }
 
@@ -156,6 +156,7 @@ function rotateJournal() {
 module.exports = {
   addRecords: addRecords,
   readJournal: readJournal,
+  stopJournalTimer: stopJournalTimer,
   closeJournal: closeJournal,
   requestRotate: requestRotate
 };
