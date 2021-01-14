@@ -1,8 +1,10 @@
 #!/usr/bin/env nodejs
-var express = require('express');
-var bodyParser = require('body-parser');
-var journal = require("./datajournal.js");
-var db = require("./database.js");
+const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const journal = require("./datajournal.js");
+const db = require("./database.js");
+const weather = require("./weather.js");
 
 // read data journal
 // data journal holds recently posted records
@@ -52,9 +54,11 @@ let prevEstHour = 999;
 setInterval(() => {
   const date = new Date();
   const utcHour = date.getUTCHours();
-  const estHour = (utcHour + 24 - 6) % 24;
+  const estHour = (utcHour + 24 - 5) % 24;
   if (estHour != prevEstHour) {
     prevEstHour = estHour;
+    // get weather once an hour
+    weather.getWeather();
     if (estHour == 1) {
       // it is 1:00 AM in Connecticut!
       db.writeAllChanges();
@@ -65,8 +69,8 @@ setInterval(() => {
 
 // catch interrupt signal, write database to files before exiting
 process.on('SIGINT', function() {
-    journal.stopJournalTimer();
-    journal.closeJournal();
-    db.writeAllChanges();
-    process.exit();
+  journal.stopJournalTimer();
+  journal.closeJournal();
+  db.writeAllChanges();
+  process.exit();
 });
