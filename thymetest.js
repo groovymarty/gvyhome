@@ -1,7 +1,7 @@
 #!/usr/bin/env nodejs
 const thyme = require("./thyme.js");
 
-// verify 2000 has 365 days
+// verify 2000 has 366 days
 let t = 0;
 let n = 0;
 while (true) {
@@ -13,12 +13,12 @@ while (true) {
     n += 1;
     t += 24 * 60 * 60 * 1000; //bump 1 day
 }
-if (n != 365) {
-    console.log("Error, days in 2000 is", n, "expected 365");
+if (n != 366) {
+    console.log("Error, days in 2000 is", n, "expected 366");
     process.exit(0);
 }
 
-// verify years 2000 through 2004 have 365*5 + 1 = 1826 days
+// verify years 2000 through 2004 have 365*5 + 2 = 1827 days
 t = 0;
 n = 0;
 while (true) {
@@ -30,8 +30,8 @@ while (true) {
     n += 1;
     t += 24 * 60 * 60 * 1000; //bump 1 day
 }
-if (n != 1826) {
-    console.log("error, days in 2000-2004 is", n, "expected 1826");
+if (n != 1827) {
+    console.log("error, days in 2000-2004 is", n, "expected 1827");
     process.exit(0);
 }
 
@@ -83,6 +83,6 @@ while (true) {
     if (tm.year==2030) break;
     t += 24 * 60 * 60 * 1000; //bump 1 day
 }
-if (n != 7) {
-    console.log("error, found", n, "leap days, expected 7");
+if (n != 8) {
+    console.log("error, found", n, "leap days, expected 8");
 }

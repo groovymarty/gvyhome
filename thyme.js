@@ -30,9 +30,9 @@ function parseTime(t) {
       sec: parseInt(mr[6]),
       msec: parseInt(mr[7])
     };
-    const ym1 = y ? y-1 : 0;
-    const myMonthSum = (!y || y % 4) ? monthSum : monthSumLy; //2000 wasn't a leap year
-    const days = y*365 + Math.floor(ym1 / 4) + myMonthSum[tm.month - 1] + tm.day - 1;
+    const nly = Math.floor((y + 3) / 4);
+    const myMonthSum = (y % 4) ? monthSum : monthSumLy;
+    const days = y*365 + nly + myMonthSum[tm.month - 1] + tm.day - 1;
     const secs = ((days*24 + tm.hour)*60 + tm.min)*60 + tm.sec;
     // time in milliseconds since January 1, 2000 EST
     tm.ms = secs*1000 + tm.msec;
@@ -54,17 +54,17 @@ function setTime(tm, ms) {
   const h = Math.floor(m / 60);
   tm.hour = h % 24;
   let d = Math.floor(h / 24);
-  let y = 0;
-  if (d >= 365) {
-    d -= 365; //subtract year 2000
-    const nly = Math.floor(d / 1461); //number of complete leap year cycles
-    d -= nly * 1461;
-    y = d < 1095 ? Math.floor(d / 365) : 3; //year in current leap year cycle, 0-3
-    d -= y * 365;
-    y += (nly * 4) + 1;
+  const nly = Math.floor(d / 1461); //number of complete leap year cycles
+  let y = nly * 4;
+  d -= nly * 1461;
+  if (d >= 366) {
+    d -= 366; //first year of ly cycle has 366 days
+    const n = Math.floor(d / 365); //how many additional 365 day years?
+    d -= n * 365;
+    y += n + 1;
   }
   tm.year = y + 2000;
-  const myMonthSum = (!y || y % 4) ? monthSum : monthSumLy; //2000 wasn't a leap year
+  const myMonthSum = (y % 4) ? monthSum : monthSumLy;
   const i = myMonthSum.findIndex(sum => d < sum);
   tm.month = i < 0 ? 12 : i;
   tm.day = d - myMonthSum[tm.month-1] + 1;
@@ -74,6 +74,15 @@ function setTime(tm, ms) {
 // make time structure from specified time in milliseconds
 function makeTime(ms) {
   return setTime({}, ms);
+}
+
+const days1970to2000 = 365*30 + 7;
+const epochOffsetMs = days1970to2000 * 24 * 60 * 60 * 1000;
+const estOffsetMs = 5 * 60 * 60 * 1000;
+
+// make time structure for current time
+function makeTimeNow() {
+  return makeTime(Date.now() - epochOffsetMs - estOffsetMs);
 }
 
 // return date string in YYYY-MM-DD format
@@ -101,6 +110,7 @@ module.exports = {
   parseTime: parseTime,
   setTime: setTime,
   makeTime: makeTime,
+  makeTimeNow: makeTimeNow,
   formatTime: formatTime,
   formatDate: formatDate,
   formatDateTime: formatDateTime
