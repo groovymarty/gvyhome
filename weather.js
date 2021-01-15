@@ -5,7 +5,7 @@ var path = require('path');
 var thyme = require("./thyme.js");
 var journal = require("./datajournal.js");
 
-const openweatherApiKeyPath = path.join(os.homepath(), ".openweather-api-key");
+const openweatherApiKeyPath = path.join(os.homedir(), ".openweather-api-key");
 const openweatherApiKey = fs.readFileSync(openweatherApiKeyPath);
 const ourHouseCoords = {
   lat: 41.488380,
