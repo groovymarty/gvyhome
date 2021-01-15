@@ -1,9 +1,12 @@
 var axios = require('axios');
 var fs = require('fs');
+var os = require('os');
+var path = require('path');
 var thyme = require("./thyme.js");
 var journal = require("./datajournal.js");
 
-const openweatherApiKey = fs.readFileSync(".openweather-api-key");
+const openweatherApiKeyPath = path.join(os.homepath(), ".openweather-api-key");
+const openweatherApiKey = fs.readFileSync(openweatherApiKeyPath);
 const ourHouseCoords = {
   lat: 41.488380,
   lon: -73.319633
