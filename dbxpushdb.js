@@ -87,8 +87,12 @@ function processFile(filePath, chain) {
           contents: fs.readFileSync(filePath),
           path: convertPathLocalToDbx(filePath),
           mode: {'.tag': 'overwrite'}
-        }).then(() => {
+        }).then((fileMeta) => {
           console.log("upload complete for", filePath);
+          // verify we computed same hash as Dropbox
+          if (hash != fileMeta.content_hash) {
+            console.log("hash mismatch for", filePath);
+          }
         }).catch(err => {
           console.log("upload failed for", filePath, err.error);
         });
