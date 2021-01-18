@@ -1,7 +1,7 @@
 #!/usr/bin/env nodejs
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
+const cors = require('cors');
 const journal = require("./datajournal.js");
 const db = require("./database.js");
 const weather = require("./weather.js");
@@ -14,6 +14,7 @@ journal.readJournal();
 
 var app = express();
 app.use(bodyParser.json());
+app.use(cors());
 
 // post data
 app.post("/gvyhome/data", function(req, res) {
