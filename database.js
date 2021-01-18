@@ -206,6 +206,7 @@ function loadDays(tStart, tEnd) {
 
 module.exports = {
   validateRecord: validateRecord,
+  cleanRecord: cleanRecord,
   addRecord: addRecord,
   writeAllChanges: writeAllChanges,
   loadDays: loadDays

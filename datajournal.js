@@ -30,7 +30,7 @@ function addRecords(recs) {
       // must write to journal first because db adds extra fields like tm
       writeJournal(rec);
       db.addRecord(rec);
-      latestRecs[rec.src] = rec;
+      latestRecs[rec.src] = db.cleanRecord(rec);
     }
   });
   flushJournal();
@@ -113,7 +113,7 @@ function readJournal() {
           console.log(journalFileName+" bad record on line "+lineNum+": "+errMsg);
         } else {
           db.addRecord(rec);
-          latestRecs[rec.src] = rec;
+          latestRecs[rec.src] = db.cleanRecord(rec);
         }
       } catch (e) {
         console.log(journalFileName+" JSON parse error on line "+lineNum);
