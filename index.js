@@ -44,6 +44,11 @@ app.get("/gvyhome/op/writeallchanges", function(req, res) {
   res.status(200).end();
 });
 
+// queries
+app.get("/gvyhome/data/latest", function(req, res) {
+  res.status(200).json(journal.latestRecs).end();
+});
+
 var port = 8082;
 app.listen(port, function() {
   console.log("Server listening on port "+port);

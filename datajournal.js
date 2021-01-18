@@ -7,6 +7,9 @@ let ws = null;
 let journalTimer = null;
 let rotateRequested = false;
 
+// latest record received for each source
+const latestRecs = {};
+
 // add record or array of records to journal
 // return null if success, else return error message string
 function addRecords(recs) {
@@ -27,6 +30,7 @@ function addRecords(recs) {
       // must write to journal first because db adds extra fields like tm
       writeJournal(rec);
       db.addRecord(rec);
+      latestRecs[rec.src] = rec;
     }
   });
   flushJournal();
@@ -109,6 +113,7 @@ function readJournal() {
           console.log(journalFileName+" bad record on line "+lineNum+": "+errMsg);
         } else {
           db.addRecord(rec);
+          latestRecs[rec.src] = rec;
         }
       } catch (e) {
         console.log(journalFileName+" JSON parse error on line "+lineNum);
@@ -158,5 +163,6 @@ module.exports = {
   readJournal: readJournal,
   stopJournalTimer: stopJournalTimer,
   closeJournal: closeJournal,
-  requestRotate: requestRotate
+  requestRotate: requestRotate,
+  latestRecs: latestRecs
 };
