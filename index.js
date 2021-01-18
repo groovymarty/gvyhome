@@ -15,6 +15,12 @@ journal.readJournal();
 var app = express();
 app.use(bodyParser.json());
 app.use(cors());
+// all content is dynamic so disable caching
+app.set('etag', false);
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 // post data
 app.post("/gvyhome/data", function(req, res) {
