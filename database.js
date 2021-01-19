@@ -116,7 +116,7 @@ function makeMonthPath(tm) {
 
 // return day file path for specified time
 function makeDayPath(tm) {
-  return path.join(makeMonthPath(tm), (tm.day + 100).toString().substring(1));
+  return path.join(makeMonthPath(tm), (tm.day + 100).toString().substring(1)+".json");
 }
 
 // make directory recursive
@@ -145,17 +145,17 @@ function writeDayFile(day) {
 
 // read day records from file, if file exists
 function readDayFile(day) {
-  const dayPath = makeDayPath(day.tm);
+  let dayPath = makeDayPath(day.tm);
+  // temp, above was const
+  if (!fs.existsSync(dayPath)) {
+    // if .json file doesn't exist try without extension
+    dayPath = dayPath.substring(0, dayPath.length-5);
+  }
   if (fs.existsSync(dayPath)) {
     try {
       console.log("reading", dayPath);
       const dayFromFile = JSON.parse(fs.readFileSync(dayPath));
-      if (Array.isArray(dayFromFile)) {
-        // temporary for backwards compat, day file is array of records
-        // TODO: remove once all day files are converted
-        const recs = dayFromFile;
-        recs.forEach(rec => addRecord(rec));
-      } else if (typeof dayFromFile === 'object') {
+      if (typeof dayFromFile === 'object') {
         if (Array.isArray(dayFromFile.recs)) {
           // note this will set changed flag for day unless record is already loaded
           dayFromFile.recs.forEach(rec => addRecord(rec));
