@@ -7,7 +7,7 @@ let n = 0;
 while (true) {
     const tm = thyme.makeTime(t);
     if (tm.hour == 0) {
-        //console.log(thyme.formatDateTime(tm), n);
+        //console.log(tm.formatDateTime(), n);
         if (tm.year==2001) break;
     }
     n += 1;
@@ -24,7 +24,7 @@ n = 0;
 while (true) {
     const tm = thyme.makeTime(t);
     if (tm.day==1) {
-        //console.log(thyme.formatDateTime(tm), n);
+        //console.log(tm.formatDateTime(), n);
         if (tm.year==2005) break;
     }
     n += 1;
@@ -40,39 +40,39 @@ t = 0;
 n = 0;
 while (true) {
     const tm = thyme.makeTime(t);
-    const tm_str = thyme.formatDateTime(tm);
+    const tm_str = tm.formatDateTime();
     //console.log("tm", tm.ms, tm_str);
     if (t) {
         const yes = thyme.makeTime(t-1);
         if (yes.hour != 23 || yes.min != 59 || yes.sec != 59 || yes.msec != 999) {
-            console.log("today is", thyme.formatDateTime(tm));
-            console.log("yesterday is", thyme.formatDateTime(yes), "expected 23:59:59.999");
+            console.log("today is", tm.formatDateTime());
+            console.log("yesterday is", yes.formatDateTime(), "expected 23:59:59.999");
             process.exit(0);
         }
         if (tm.day==1) {
             if (tm.month==1) {
                 if (yes.month != 12) {
-                    console.log("today is Jan 1 but yesterday is", thyme.formatDateTime(yes), "expected Dec");
+                    console.log("today is Jan 1 but yesterday is", yes.formatDateTime(), "expected Dec");
                     process.exit(0);
                 }
                 if (yes.year != tm.year-1) {
-                    console.log("today is Jan 1 but yesterday is", thyme.formatDateTime(yes), "expected prev year");
+                    console.log("today is Jan 1 but yesterday is", yes.formatDateTime(), "expected prev year");
                     process.exit(0);
                 }
             } else {
                 if (yes.month != tm.month-1) {
-                    console.log("today is 1st but yesterday is", thyme.formatDateTime(yes), "expected prev month");                    
+                    console.log("today is 1st but yesterday is", yes.formatDateTime(), "expected prev month");                    
                     process.exit(0);
                 }
                 if (yes.year != tm.year) {
-                    console.log("today is 1st but yesterday is", thyme.formatDateTime(yes), "expected same year");                    
+                    console.log("today is 1st but yesterday is", yes.formatDateTime(), "expected same year");                    
                     process.exit(0);
                 }
             }
         }
         const tm2 = thyme.parseTime(tm_str);
         if (tm2.ms != tm.ms) {
-            console.log("tm did not parse correctly, tm=", tm.ms, tm_str, "tm2=", tm2.ms, thyme.formatDateTime(tm2));
+            console.log("tm did not parse correctly, tm=", tm.ms, tm_str, "tm2=", tm2.ms, tm2.formatDateTime());
             process.exit(0);
         }
         // count leap days

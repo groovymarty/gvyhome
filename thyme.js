@@ -15,26 +15,33 @@ daysInMonth.forEach((n, i) => {
   sum += n;
 });
 
+// constructor for time object
+// args array corresponds to time pattern above
+function Thyme(args) {
+  if (args) {
+    this.year = parseInt(args[1]);   //year >= 2000
+    this.month = parseInt(args[2]);  //month 1-12
+    this.day = parseInt(args[3]);    //day 1-31
+    this.hour = parseInt(args[4]);   //hour 0-23
+    this.min = parseInt(args[5]);    //minute 0-59
+    this.sec = parseInt(args[6]);    //second 0-50
+    this.msec = parseInt(args[7]);   //millisecond 0-999
+  }
+  this.ms = 0;  //milliseconds since January 1, 2000 EST
+}
+
 // parse time string
-// return time structure or null if invalid
+// return time object or null if invalid
 function parseTime(t) {
   const mr = typeof t === 'string' && t.match(timePat);
   if (mr) {
-    const y = parseInt(mr[1]);
-    const tm = {
-      year: y + 2000,
-      month: parseInt(mr[2]),
-      day: parseInt(mr[3]),
-      hour: parseInt(mr[4]),
-      min: parseInt(mr[5]),
-      sec: parseInt(mr[6]),
-      msec: parseInt(mr[7])
-    };
+    const tm = new Thyme(mr);
+    const y = tm.year;
+    tm.year += 2000;
     const nly = Math.floor((y + 3) / 4);
     const myMonthSum = (y % 4) ? monthSum : monthSumLy;
     const days = y*365 + nly + myMonthSum[tm.month - 1] + tm.day - 1;
     const secs = ((days*24 + tm.hour)*60 + tm.min)*60 + tm.sec;
-    // time in milliseconds since January 1, 2000 EST
     tm.ms = secs*1000 + tm.msec;
     return tm;
   }
@@ -43,16 +50,15 @@ function parseTime(t) {
 }
 
 // set time structure to specified time in milliseconds
-// return time structure
-function setTime(tm, ms) {
-  tm.ms = ms;
-  tm.msec = ms % 1000;
+Thyme.prototype.setTime = function(ms) {
+  this.ms = ms;
+  this.msec = ms % 1000;
   const s = Math.floor(ms / 1000);
-  tm.sec = s % 60;
+  this.sec = s % 60;
   const m = Math.floor(s / 60);
-  tm.min = m % 60;
+  this.min = m % 60;
   const h = Math.floor(m / 60);
-  tm.hour = h % 24;
+  this.hour = h % 24;
   let d = Math.floor(h / 24);
   const nly = Math.floor(d / 1461); //number of complete leap year cycles
   let y = nly * 4;
@@ -63,55 +69,54 @@ function setTime(tm, ms) {
     d -= n * 365;
     y += n + 1;
   }
-  tm.year = y + 2000;
+  this.year = y + 2000;
   const myMonthSum = (y % 4) ? monthSum : monthSumLy;
   const i = myMonthSum.findIndex(sum => d < sum);
-  tm.month = i < 0 ? 12 : i;
-  tm.day = d - myMonthSum[tm.month-1] + 1;
-  return tm;
-}
+  this.month = i < 0 ? 12 : i;
+  this.day = d - myMonthSum[this.month-1] + 1;
+};
 
-// make time structure from specified time in milliseconds
+// make time object from specified time in milliseconds
 function makeTime(ms) {
-  return setTime({}, ms);
+  // make time object with undefined properties
+  const tm = new Thyme();
+  // this function sets all time properties
+  tm.setTime(ms);
+  return tm;
 }
 
 const days1970to2000 = 365*30 + 7;
 const epochOffsetMs = days1970to2000 * 24 * 60 * 60 * 1000;
 const estOffsetMs = 5 * 60 * 60 * 1000;
 
-// make time structure for current time
+// make time object for current time
 function makeTimeNow() {
   return makeTime(Date.now() - epochOffsetMs - estOffsetMs);
 }
 
 // return date string in YYYY-MM-DD format
-function formatDate(tm) {
-  return tm.year +
-    (tm.month < 10 ? "-0" : "-") + tm.month +
-    (tm.day < 10 ? "-0" : "-") + tm.day;
-}
+Thyme.prototype.formatDate = function() {
+  return this.year +
+    (this.month < 10 ? "-0" : "-") + this.month +
+    (this.day < 10 ? "-0" : "-") + this.day;
+};
 
 // return time string in HH:MM:SS.FFF format
 // time is Eastern Standard Time, without DST adjustment
-function formatTime(tm) {
-  return (tm.hour < 10 ? "0" : "") + tm.hour +
-    (tm.min < 10 ? ":0" : ":") + tm.min +
-    (tm.sec < 10 ? ":0" : ":") + tm.sec + "." +
-    (tm.msec + 1000).toString().substring(1);
+Thyme.prototype.formatTime = function() {
+  return (this.hour < 10 ? "0" : "") + this.hour +
+    (this.min < 10 ? ":0" : ":") + this.min +
+    (this.sec < 10 ? ":0" : ":") + this.sec + "." +
+    (this.msec + 1000).toString().substring(1);
 }
 
 // return date and time string
-function formatDateTime(tm) {
-  return formatDate(tm) + " " + formatTime(tm);
+Thyme.prototype.formatDateTime = function() {
+  return this.formatDate() + " " + this.formatTime();
 }
 
 module.exports = {
   parseTime: parseTime,
-  setTime: setTime,
   makeTime: makeTime,
-  makeTimeNow: makeTimeNow,
-  formatTime: formatTime,
-  formatDate: formatDate,
-  formatDateTime: formatDateTime
+  makeTimeNow: makeTimeNow
 };

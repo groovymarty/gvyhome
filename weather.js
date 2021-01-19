@@ -28,7 +28,7 @@ function processWeatherData(data) {
       typeof data.main.temp === 'number' &&
       typeof data.main.humidity === 'number') {
     journal.addRecords({
-      t: thyme.formatDateTime(thyme.makeTimeNow()),
+      t: thyme.makeTimeNow().formatDateTime(),
       src: "ow1",
       temp: data.main.temp,
       humid: data.main.humidity

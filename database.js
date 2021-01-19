@@ -69,7 +69,7 @@ function addRecord(rec) {
       if (day.recs.length > 1) {
         const oldLastRec = day.recs[day.recs.length - 2];
         if (tm.ms < oldLastRec.tm.ms) {
-          console.log("resorting array for "+thyme.formatDate(tm));
+          console.log("resorting array for "+tm.formatDate());
           day.recs.sort(compareRecords);
         }
       }
@@ -198,7 +198,7 @@ function loadDays(tStart, tEnd) {
   }
   while (tm.ms < tmEnd.ms) {
     loadDay(findOrAddDay(tm));
-    thyme.setTime(tm, tm.ms + 24 * 60 * 60 * 1000);
+    tm.setTime(tm.ms + 24 * 60 * 60 * 1000);
   }
   return null;
 }
