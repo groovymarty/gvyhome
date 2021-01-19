@@ -53,7 +53,11 @@ function addRecord(rec) {
     const day = findOrAddDay(tm);
     // make sure we've loaded any records already saved to file for this day
     if (!day.loaded) {
-        loadDay(day);
+      // we don't want changed flag to be set just because we called loadDay
+      // so save changed flag and restore afterwards
+      const saveChanged = day.changed;
+      loadDay(day);
+      day.changed = saveChanged;
     }
     // ignore duplicates
     if (!findRecord(day.recs, tm, rec.src)) {
@@ -95,7 +99,7 @@ function cleanRecord(rec) {
 
 // write all changed records to files
 function writeAllChanges() {
-  console.log("writeAllChanges");//mhs temp
+  console.log("writeAllChanges");
   years.forEach(year => {
     year.months.forEach(month => {
       month.days.forEach(day => {
@@ -145,12 +149,7 @@ function writeDayFile(day) {
 
 // read day records from file, if file exists
 function readDayFile(day) {
-  let dayPath = makeDayPath(day.tm);
-  // temp, above was const
-  if (!fs.existsSync(dayPath)) {
-    // if .json file doesn't exist try without extension
-    dayPath = dayPath.substring(0, dayPath.length-5);
-  }
+  const dayPath = makeDayPath(day.tm);
   if (fs.existsSync(dayPath)) {
     try {
       console.log("reading", dayPath);
