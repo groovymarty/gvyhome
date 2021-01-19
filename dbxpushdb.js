@@ -83,7 +83,7 @@ function processFile(filePath, chain) {
     if (hash !== info.hash) {
       // add upload to promise chain
       chain = chain.then(() => {
-        mydbx.filesUpload({
+        return mydbx.filesUpload({
           contents: fs.readFileSync(filePath),
           path: convertPathLocalToDbx(filePath),
           mode: {'.tag': 'overwrite'}
