@@ -46,6 +46,18 @@ app.get("/gvyhome/op/loaddays", function(req, res) {
   }
 });
 
+app.get("/gvyhome/op/sweepdays", function(req, res) {
+  const tStart = (req.query.start || "") + " 00:00:00.000";
+  const tEnd = (req.query.end || "") + " 00:00:00.000";
+  console.log("sweepDays: tStart", tStart, "tEnd", tEnd);
+  const errMsg = db.sweepDays(tStart, tEnd);
+  if (errMsg) {
+    res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).end();
+  }
+});
+
 app.get("/gvyhome/op/writeallchanges", function(req, res) {
   db.writeAllChanges();
   res.status(200).end();
@@ -53,7 +65,7 @@ app.get("/gvyhome/op/writeallchanges", function(req, res) {
 
 // queries
 app.get("/gvyhome/data/latest", function(req, res) {
-  res.status(200).json(journal.latestRecs).end();
+  res.status(200).json(db.latestRecs).end();
 });
 
 var port = 8082;

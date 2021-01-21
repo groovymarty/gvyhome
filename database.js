@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const thyme = require("./thyme");
 
+// here is the database in memory
 const years = [];
+
+// latest record received for each source
+const latestRecs = {};
 
 // validate record
 // check fields for known souces, but allow unrecognized sources
@@ -40,7 +44,7 @@ function findOrAddDay(tm) {
     // TODO: day should be a class with a constructor
     month.days[tm.day] = {
       recs: [], tm: Object.assign({}, tm),
-      loaded: false, changed: false, version: 0, maInpStart: 0
+      loaded: false, changed: false, version: 0, initState: {}
     };
   }
   return month.days[tm.day];
@@ -53,11 +57,7 @@ function addRecord(rec) {
     const day = findOrAddDay(tm);
     // make sure we've loaded any records already saved to file for this day
     if (!day.loaded) {
-      // we don't want changed flag to be set just because we called loadDay
-      // so save changed flag and restore afterwards
-      const saveChanged = day.changed;
       loadDay(day);
-      day.changed = saveChanged;
     }
     // ignore duplicates
     if (!findRecord(day.recs, tm, rec.src)) {
@@ -95,6 +95,26 @@ function cleanRecord(rec) {
   const copyOfRec = Object.assign({}, rec);
   delete copyOfRec.tm;
   return copyOfRec;
+}
+
+// shallow equality test for records
+// return true if records have same properties with equal values
+// works best with clean records (tm fields will make records unequal)
+function recsAreEqual(r1, r2) {
+  if (typeof r1 === 'object' && typeof r2 === 'object') {
+    const keys1 = Object.keys(r1);
+    const keys2 = Object.keys(r2);
+    return keys1.count === keys2.count &&
+      keys1.every(key => r1[key] === r2[key]);
+  } else {
+    return false;
+  }
+}
+
+// add record to latest
+// use this mainly for incoming live records
+function addLatest(rec) {
+  latestRecs[rec.src] = cleanRecord(rec);
 }
 
 // write all changed records to files
@@ -141,7 +161,7 @@ function writeDayFile(day) {
   const dayToFile = {
     recs: day.recs.map(cleanRecord),
     version: day.version,
-    maInpStart: day.maInpStart
+    initState: day.initState
   };
   console.log("writing", dayPath);
   fs.writeFileSync(dayPath, JSON.stringify(dayToFile, null, 1));
@@ -165,8 +185,8 @@ function readDayFile(day) {
         if ('version' in dayFromFile) {
           day.version = dayFromFile.version;
         }
-        if ('manInpStart' in dayFromFile) {
-          day.manInpStart = dayFromFile.manInpStart;
+        if ('initState' in dayFromFile) {
+          day.initState = dayFromFile.initState;
         }
       } else {
         console.log("JSON is not an object in "+dayPath);
@@ -179,10 +199,14 @@ function readDayFile(day) {
 }
 
 // load day file
+// loading day file does not set the changed flag
 function loadDay(day) {
   // must set loaded flag before calling readDayFile to avoid infinite recursion!
   day.loaded = true;
+  // save changed flag and restore after reading day file
+  const saveChanged = day.changed;
   readDayFile(day);
+  day.changed = saveChanged;
 }
 
 // load range of days into database
@@ -196,8 +220,65 @@ function loadDays(tStart, tEnd) {
   if (!tmEnd) {
     return "bad end time";
   }
-  while (tm.ms < tmEnd.ms) {
+  while (tm.ms <= tmEnd.ms) {
     loadDay(findOrAddDay(tm));
+    tm.setTime(tm.ms + 24 * 60 * 60 * 1000);
+  }
+  return null;
+}
+
+// given initial state, apply all records in day and return final state
+// returns new state object
+function reduceDay(day, initState) {
+  return day.recs.reduce((state, rec) => {
+    state[rec.src] = rec;
+    return state;
+  }, Object.assign({}, initState));
+}
+
+// return copy of state with clean records
+function cleanState(state) {
+  const newState = {};
+  Object.keys(state).forEach(key => {
+    newState[key] = cleanRecord(state[key]);
+  });
+  return newState;
+}
+
+// equality test for states
+// return true if states have same sources with records that pass equality test
+function statesAreEqual(s1, s2) {
+  if (typeof s1 === 'object' && typeof s2 === 'object') {
+    const keys1 = Object.keys(s1);
+    const keys2 = Object.keys(s2);
+    return keys1.count === keys2.count &&
+      keys1.every(key => recsAreEqual(s1[key], s2[key]));
+  } else {
+    return false;
+  }
+}
+
+// sweep database and update/fix things:
+// - recomputes initial state for each day
+// return null if success, else return error message string
+function sweepDays(tStart, tEnd) {
+  const tm = thyme.parseTime(tStart);
+  if (!tm) {
+    return "bad start time";
+  }
+  const tmEnd = thyme.parseTime(tEnd);
+  if (!tmEnd) {
+    return "bad end time";
+  }
+  let state = {};
+  while (tm.ms <= tmEnd.ms) {
+    const day = findOrAddDay(tm);
+    loadDay(day);
+    if (!statesAreEqual(state, day.initState)) {
+      day.initState = state;
+      day.changed = true;
+    }
+    state = cleanState(reduceDay(day, state));
     tm.setTime(tm.ms + 24 * 60 * 60 * 1000);
   }
   return null;
@@ -207,6 +288,9 @@ module.exports = {
   validateRecord: validateRecord,
   cleanRecord: cleanRecord,
   addRecord: addRecord,
+  addLatest: addLatest,
+  latestRecs: latestRecs,
   writeAllChanges: writeAllChanges,
-  loadDays: loadDays
+  loadDays: loadDays,
+  sweepDays: sweepDays
 };
