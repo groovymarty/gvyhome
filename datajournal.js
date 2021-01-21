@@ -26,7 +26,7 @@ function addRecords(recs) {
     } else {
       // must write to journal first because db adds extra fields like tm
       writeJournal(rec);
-      db.addRecord(rec);
+      db.addRecord(rec, true);
       db.addLatest(rec);
     }
   });
@@ -109,7 +109,7 @@ function readJournal() {
         if (errMsg) {
           console.log(journalFileName+" bad record on line "+lineNum+": "+errMsg);
         } else {
-          db.addRecord(rec);
+          db.addRecord(rec, true);
           db.addLatest(rec);
         }
       } catch (e) {

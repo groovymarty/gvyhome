@@ -31,7 +31,8 @@ function validateRecord(rec) {
 }
 
 // return day for specified timestamp, create if necessary
-function findOrAddDay(tm) {
+// if new day created, use specified initial state or empty state if none specified
+function findOrAddDay(tm, initState) {
   if (!years[tm.year]) {
     years[tm.year] = {months: [], tm: Object.assign({}, tm)};
   }
@@ -43,18 +44,25 @@ function findOrAddDay(tm) {
   if (!month.days[tm.day]) {
     // TODO: day should be a class with a constructor
     month.days[tm.day] = {
-      recs: [], tm: Object.assign({}, tm),
-      loaded: false, changed: false, version: 0, initState: {}
+      recs: [],
+      tm: Object.assign({}, tm),
+      loaded: false,
+      changed: false,
+      version: 0,
+      initState: initState || {}
     };
   }
   return month.days[tm.day];
 }
 
 // add record to database
-function addRecord(rec) {
+// live flag determines initial state if new day is created
+// if live is true, initial state is latest records received
+// otherwise initial state is empty
+function addRecord(rec, live) {
   const tm = thyme.parseTime(rec.t);
   if (tm) {
-    const day = findOrAddDay(tm);
+    const day = findOrAddDay(tm, live ? latestRecs : {});
     // make sure we've loaded any records already saved to file for this day
     if (!day.loaded) {
       loadDay(day);
