@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const journal = require("./datajournal.js");
 const db = require("./database.js");
+const thyme = require("./thyme.js");
 const weather = require("./weather.js");
 
 // read data journal
@@ -35,25 +36,35 @@ app.post("/gvyhome/data", function(req, res) {
 
 // operations
 app.get("/gvyhome/op/loaddays", function(req, res) {
-  const tStart = (req.query.start || "") + " 00:00:00.000";
-  const tEnd = (req.query.end || "") + " 00:00:00.000";
-  console.log("loadDays: tStart", tStart, "tEnd", tEnd);
-  const errMsg = db.loadDays(tStart, tEnd);
+  let errMsg = "";
+  const tmStart = thyme.parseTime((req.query.start || "") + " 00:00:00.000");
+  const tmEnd = thyme.parseTime((req.query.end || "") + " 00:00:00.000");
+  if (!tmStart) {
+    errMsg = "bad start time";
+  } else if (!tmEnd) {
+    errMsg = "bad end time";
+  }
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
+    db.loadDays(tmStart, tmEnd);
     res.status(200).end();
   }
 });
 
 app.get("/gvyhome/op/sweepdays", function(req, res) {
-  const tStart = (req.query.start || "") + " 00:00:00.000";
-  const tEnd = (req.query.end || "") + " 00:00:00.000";
-  console.log("sweepDays: tStart", tStart, "tEnd", tEnd);
-  const errMsg = db.sweepDays(tStart, tEnd);
+  let errMsg = "";
+  const tmStart = thyme.parseTime((req.query.start || "") + " 00:00:00.000");
+  const tmEnd = thyme.parseTime((req.query.end || "") + " 00:00:00.000");
+  if (!tmStart) {
+    errMsg = "bad start time";
+  } else if (!tmEnd) {
+    errMsg = "bad end time";
+  }
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
+    db.sweepDays(tmStart, tmEnd);
     res.status(200).end();
   }
 });
@@ -66,6 +77,25 @@ app.get("/gvyhome/op/writeallchanges", function(req, res) {
 // queries
 app.get("/gvyhome/data/latest", function(req, res) {
   res.status(200).json(db.latestRecs).end();
+});
+
+app.get("/gvyhome/data/chans", function(req, res) {
+  let errMsg = "";
+  const tmStart = thyme.parseTime((req.query.start || "") + " 00:00:00.000");
+  const nDays = parseInt(req.query.ndays) || 0;
+  const chanFilt = db.parseChanFilter(req.query.chans || "");
+  if (!tmStart) {
+    errMsg = "bad start time";
+  } else if (nDays < 0 || nDays > 30) {
+    errMsg = "ndays out of range";
+  } else if (!chanFilt) {
+    errMsg = "bad channel filter";
+  }
+  if (errMsg) {
+    res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).json(db.queryChans(tmStart, nDays, chanFilt)).end();    
+  }
 });
 
 var port = 8082;

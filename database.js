@@ -218,16 +218,9 @@ function loadDay(day) {
 }
 
 // load range of days into database
-// return null if success, else return error message string
-function loadDays(tStart, tEnd) {
-  const tm = thyme.parseTime(tStart);
-  if (!tm) {
-    return "bad start time";
-  }
-  const tmEnd = thyme.parseTime(tEnd);
-  if (!tmEnd) {
-    return "bad end time";
-  }
+function loadDays(tmStart, tmEnd) {
+  console.log("loadDays", tmStart.formatDate(), "to", tmEnd.formatDate());
+  const tm = thyme.makeTime(tmStart.ms);
   while (tm.ms <= tmEnd.ms) {
     loadDay(findOrAddDay(tm));
     tm.setTime(tm.ms + 24 * 60 * 60 * 1000);
@@ -268,16 +261,9 @@ function statesAreEqual(s1, s2) {
 
 // sweep database and update/fix things:
 // - recomputes initial state for each day
-// return null if success, else return error message string
-function sweepDays(tStart, tEnd) {
-  const tm = thyme.parseTime(tStart);
-  if (!tm) {
-    return "bad start time";
-  }
-  const tmEnd = thyme.parseTime(tEnd);
-  if (!tmEnd) {
-    return "bad end time";
-  }
+function sweepDays(tmStart, tmEnd) {
+  console.log("sweepDays", tmStart.formatDate(), "to", tmEnd.formatDate());
+  const tm = thyme.makeTime(tmStart.ms);
   let state = {};
   while (tm.ms <= tmEnd.ms) {
     const day = findOrAddDay(tm);
@@ -292,6 +278,17 @@ function sweepDays(tStart, tEnd) {
   return null;
 }
 
+// parse channel filter
+// return filter object or null if invalid
+function parseChanFilter(str) {
+  return null;
+}
+
+// channel query
+function queryChans(tmStart, nDays, chanFilt) {
+  return {};
+}
+
 module.exports = {
   validateRecord: validateRecord,
   cleanRecord: cleanRecord,
@@ -300,5 +297,7 @@ module.exports = {
   latestRecs: latestRecs,
   writeAllChanges: writeAllChanges,
   loadDays: loadDays,
-  sweepDays: sweepDays
+  sweepDays: sweepDays,
+  parseChanFilter: parseChanFilter,
+  queryChans: queryChans
 };
