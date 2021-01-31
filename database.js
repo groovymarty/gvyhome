@@ -59,6 +59,7 @@ function findOrAddDay(tm, initState) {
 // live flag determines initial state if new day is created
 // if live is true, initial state is latest records received
 // otherwise initial state is empty
+// return true if new record was added, false if record is a duplicate
 function addRecord(rec, live) {
   const tm = thyme.parseTime(rec.t);
   if (tm) {
@@ -67,7 +68,7 @@ function addRecord(rec, live) {
     if (!day.loaded) {
       loadDay(day);
     }
-    // ignore duplicates
+    // ignore duplicates (only looks at source and time)
     if (!findRecord(day.recs, tm, rec.src)) {
       // add parsed time to record, but please remove before saving to file
       rec.tm = tm;
@@ -82,8 +83,10 @@ function addRecord(rec, live) {
         }
       }
       day.changed = true;
+      return true;
     }
   }
+  return false;
 }
 
 // search array of records for specified time and source
