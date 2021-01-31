@@ -4,7 +4,9 @@
 // always Eastern Standard Time, ignore daylight savings time to make math easier
 
 // time pattern is compatible with ISO 8601
-const timePat = /^20(\d{2})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})\.(\d{3})\d*/;
+// at least 3 digits of fraction required (milliseconds)
+// any timezone extension is ignored (for example -05:00)
+const timePat = /^20(\d{2})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})\.(\d{3}).*/;
 const monthSum = [];
 const monthSumLy = [];
 const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
