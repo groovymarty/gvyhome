@@ -20,7 +20,7 @@ function validateRecord(rec) {
     return "bad time format";
   } else if (typeof rec.src !== 'string') {
     return "no source";
-  } else if (rec.src.startsWith("ma")) {
+  } else if (/^ma\d+$/.test(rec.src)) {
     // Mary Anne
     if (typeof rec.inp !== 'number') {
       return "no input value in ma record";
