@@ -35,45 +35,83 @@ app.post("/gvyhome/data", function(req, res) {
 });
 
 // parameter helpers
-function parseStartTime(t) {
-  return t ? thyme.parseTimeRelaxed(t) : db.findFirstDay();
+// add parameter to params object
+// return null if success, else return error message string
+
+// parse start time
+// default is first day in database
+function parseStartTime(query, params) {
+  if (query.start) {
+    params.tmStart = thyme.parseTimeRelaxed(query.start);
+    if (!params.tmStart) {
+      return "bad start time";
+    }
+  } else {
+    params.tmStart = db.findFirstDay();
+    if (!params.tmStart) {
+      return "no first day";
+    }
+  }
+  // success
+  return null;
 }
 
-function parseEndTime(t) {
-  return t ? thyme.parseTimeRelaxed(t) : db.findLastDay();
+// parse end time or add ndays to start time
+// end time is inclusive so ndays cannot be zero
+// default is last day in database
+function parseEndTime(query, params) {
+  if (query.end) {
+    params.tmEnd = thyme.parseTimeRelaxed(query.end);
+    if (!params.tmEnd) {
+      return "bad end time";
+    }
+  } else if (typeof query.ndays === 'string') {
+    const nDays = parseInt(query.ndays);
+    if (!nDays || nDays < 0) {
+      return "bad ndays";
+    }
+    // assume you called parseStartTime first
+    params.tmEnd = params.tmStart.clone().addDays(nDays-1);
+  } else {
+    params.tmEnd = db.findLastDay();
+    if (!params.tmEnd) {
+      return "no last day";
+    }
+  }
+  // success
+  return null;
+}
+
+function parseChanFilter(query, params) {
+  if (query.chans) {
+    params.chanFilter = db.parseChanFilter(query.chans);
+    if (!params.chanFilter) {
+      return "bad channel filter";
+    }
+  }
+  // success
+  return null;
 }
 
 // operations
 app.get("/gvyhome/op/loaddays", function(req, res) {
-  let errMsg = "";
-  const tmStart = parseStartTime(req.query.start);
-  const tmEnd = parseEndTime(req.query.end);
-  if (!tmStart) {
-    errMsg = "bad start time";
-  } else if (!tmEnd) {
-    errMsg = "bad end time";
-  }
+  const params = {};
+  const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params);
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
-    db.loadDays(tmStart, tmEnd);
+    db.loadDays(params.tmStart, params.tmEnd);
     res.status(200).end();
   }
 });
 
 app.get("/gvyhome/op/sweepdays", function(req, res) {
-  let errMsg = "";
-  const tmStart = parseStartTime(req.query.start);
-  const tmEnd = parseEndTime(req.query.end);
-  if (!tmStart) {
-    errMsg = "bad start time";
-  } else if (!tmEnd) {
-    errMsg = "bad end time";
-  }
+  const params = {};
+  const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params);
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
-    db.sweepDays(tmStart, tmEnd);
+    db.sweepDays(params.tmStart, params.tmEnd);
     res.status(200).end();
   }
 });
@@ -90,22 +128,20 @@ app.get("/gvyhome/data/latest", function(req, res) {
   res.status(200).json(db.latestRecs).end();
 });
 
-app.get("/gvyhome/data/chans", function(req, res) {
-  let errMsg = "";
-  const tmStart = thyme.parseTime((req.query.start || "") + " 00:00:00.000");
-  const nDays = parseInt(req.query.ndays) || 0;
-  const chanFilt = db.parseChanFilter(req.query.chans || "");
-  if (!tmStart) {
-    errMsg = "bad start time";
-  } else if (nDays < 0 || nDays > 30) {
-    errMsg = "ndays out of range";
-  } else if (!chanFilt) {
-    errMsg = "bad channel filter";
-  }
+app.get("/gvyhome/data/today", function(req, res) {
+  const today = thyme.makeTimeNow().setMidnight();
+  const params = {tmStart: today, tmEnd: today};
+  res.status(200).json(db.queryDays(params));
+});
+
+app.get("/gvyhome/data/days", function(req, res) {
+  const params = {};
+  const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params) ||
+                 parseChanFilter(req.query, params);
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
-    res.status(200).json(db.queryChans(tmStart, nDays, chanFilt)).end();    
+    res.status(200).json(db.queryDays(params)).end();    
   }
 });
 

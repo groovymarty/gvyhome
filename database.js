@@ -34,18 +34,20 @@ function validateRecord(rec) {
 // if new day created, use specified initial state or empty state if none specified
 function findOrAddDay(tm, initState) {
   if (!years[tm.year]) {
-    years[tm.year] = {months: [], tm: tm.clone()};
+    years[tm.year] = {months: [], tm: tm.clone().setMidnight()};
   }
   const year = years[tm.year];
   if (!year.months[tm.month]) {
-    year.months[tm.month] = {days: [], tm: tm.clone()};
+    year.months[tm.month] = {days: [], tm: tm.clone().setMidnight()};
   }
   const month = year.months[tm.month];
   if (!month.days[tm.day]) {
     // TODO: day should be a class with a constructor
+    const dayTm = tm.clone().setMidnight();
     month.days[tm.day] = {
       recs: [],
-      tm: tm.clone(),
+      t: dayTm.formatDateTime(),
+      tm: dayTm,
       loaded: false,
       changed: false,
       version: 0,
@@ -106,6 +108,15 @@ function cleanRecord(rec) {
   const copyOfRec = Object.assign({}, rec);
   delete copyOfRec.tm;
   return copyOfRec;
+}
+
+// return cleaned up copy of day object
+function cleanDay(day) {
+  return {
+    t: day.t,
+    recs: day.recs.map(cleanRecord),
+    initState: day.initState
+  }
 }
 
 // shallow equality test for records
@@ -227,6 +238,14 @@ function loadDay(day) {
   const saveChanged = day.changed;
   readDayFile(day);
   day.changed = saveChanged;
+  return day;
+}
+
+// load day if not already loaded
+function lazyLoadDay(day) {
+  if (!day.loaded) {
+    loadDay(day);
+  }
   return day;
 }
 
@@ -368,9 +387,18 @@ function parseChanFilter(str) {
   return null;
 }
 
-// channel query
-function queryChans(tmStart, nDays, chanFilt) {
-  return {};
+// return result for days query
+// params must include tmStart, tmEnd and optional chanFilter
+function queryDays(params) {
+  console.log("queryDays", params.tmStart.formatDate(), "to", params.tmEnd.formatDate());
+  const tm = thyme.makeTime(params.tmStart.ms);
+  let result = [];
+  while (tm.ms <= params.tmEnd.ms) {
+    const day = lazyLoadDay(findOrAddDay(tm));
+    result.push(cleanDay(day));
+    tm.addDays(1);
+  }
+  return result;
 }
 
 module.exports = {
@@ -385,5 +413,5 @@ module.exports = {
   findLastDay: findLastDay,
   sweepDays: sweepDays,
   parseChanFilter: parseChanFilter,
-  queryChans: queryChans
+  queryDays: queryDays
 };
