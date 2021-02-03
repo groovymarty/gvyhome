@@ -129,15 +129,24 @@ function addLatest(rec) {
 }
 
 // write all changed records to files
-function writeAllChanges() {
-  console.log("writeAllChanges");
+// if force is true, write day file even if unchanged
+// if purge is true, delete days from memory prior to today
+function writeAllChanges(options) {
+  options = options || {};
+  const force = options.force;
+  const purge = options.purge;
+  console.log("writeAllChanges", force?"force":"", purge?"purge":"");
+  const today = thyme.makeTimeNow().setMidnight();
   years.forEach(year => {
     year.months.forEach(month => {
-      month.days.forEach(day => {
-        if (day.changed) {
+      month.days.forEach((day, iday) => {
+        if (day.changed || force) {
           day.version += 1;
           writeDayFile(day);
           day.changed = false;
+          if (purge && day.tm.ms < today.ms) {
+            delete month.days[iday];
+          }
         }
       });
     });
@@ -218,6 +227,7 @@ function loadDay(day) {
   const saveChanged = day.changed;
   readDayFile(day);
   day.changed = saveChanged;
+  return day;
 }
 
 // load range of days into database
@@ -226,7 +236,7 @@ function loadDays(tmStart, tmEnd) {
   const tm = thyme.makeTime(tmStart.ms);
   while (tm.ms <= tmEnd.ms) {
     loadDay(findOrAddDay(tm));
-    tm.setTime(tm.ms + 24 * 60 * 60 * 1000);
+    tm.addDays(1);
   }
   return null;
 }
@@ -249,13 +259,13 @@ function readDir(dirPath) {
   return names;
 }
 
-// return first or last element of array
-// ignores undefined elements at beginning of array
+// return first or last defined element of array
+// return undefined if array is empty or all elements undefined
 function firstOrLast(arr, wantFirst) {
   if (wantFirst) {
-    return arr.find(elem => typeof elem !== 'undefined');
+    return arr.reduce((accum, elem) => typeof accum === 'undefined' ? elem : accum, undefined);
   } else {
-    return arr[arr.length-1];
+    return arr.reduceRight((accum, elem) => typeof accum === 'undefined' ? elem : accum, undefined);
   }
 }
 
@@ -341,14 +351,13 @@ function sweepDays(tmStart, tmEnd) {
   const tm = thyme.makeTime(tmStart.ms);
   let state = {};
   while (tm.ms <= tmEnd.ms) {
-    const day = findOrAddDay(tm);
-    loadDay(day);
+    const day = loadDay(findOrAddDay(tm));
     if (!statesAreEqual(state, day.initState)) {
       day.initState = state;
       day.changed = true;
     }
     state = cleanState(reduceDay(day, state));
-    tm.setTime(tm.ms + 24 * 60 * 60 * 1000);
+    tm.addDays(1);
   }
   return null;
 }

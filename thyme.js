@@ -87,6 +87,7 @@ Thyme.prototype.setTime = function(ms) {
   const i = myMonthSum.findIndex(sum => d < sum);
   this.month = i < 0 ? 12 : i;
   this.day = d - myMonthSum[this.month-1] + 1;
+  return this;
 };
 
 // make time object from specified time in milliseconds
@@ -106,6 +107,22 @@ const estOffsetMs = 5 * 60 * 60 * 1000;
 function makeTimeNow() {
   return makeTime(Date.now() - epochOffsetMs - estOffsetMs);
 }
+
+// set time to 00:00:000 on same date
+Thyme.prototype.setMidnight = function() {
+  this.ms -= ((this.hour*60 + this.min)*60 + this.sec)*1000 + this.msec;
+  this.hour = 0;
+  this.min = 0;
+  this.sec = 0;
+  this.msec = 0;
+  return this;
+};
+
+// add specified number of days to time
+Thyme.prototype.addDays = function(n) {
+  this.setTime(this.ms + n * 24 * 60 * 60 * 1000);
+  return this;
+};
 
 // return date string in YYYY-MM-DD format
 Thyme.prototype.formatDate = function() {

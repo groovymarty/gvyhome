@@ -79,7 +79,9 @@ app.get("/gvyhome/op/sweepdays", function(req, res) {
 });
 
 app.get("/gvyhome/op/writeallchanges", function(req, res) {
-  db.writeAllChanges();
+  const force = !!req.query.force;
+  const purge = !!req.query.purge;
+  db.writeAllChanges({force: force, purge: purge});
   res.status(200).end();
 });
 
@@ -124,7 +126,7 @@ setInterval(() => {
     weather.getWeather();
     if (estHour == 1) {
       // it is 1:00 AM in Connecticut!
-      db.writeAllChanges();
+      db.writeAllChanges({purge: true});
       journal.requestRotate();
     }
   }
