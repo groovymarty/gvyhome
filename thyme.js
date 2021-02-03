@@ -32,7 +32,7 @@ function Thyme(args) {
   this.ms = 0;  //milliseconds since January 1, 2000 EST
 }
 
-// parse time string
+// parse full time string (including date) with strict rules
 // return time object or null if invalid
 function parseTime(t) {
   const mr = typeof t === 'string' && t.match(timePat);
@@ -49,6 +49,17 @@ function parseTime(t) {
   }
   // time is invalid
   return null;
+}
+
+// parse time string with lenient rules
+// date required but time may be omitted
+function parseTimeRelaxed(t) {
+  return parseTime(t + " 00:00:00.000");  //note this depends on .* at end of timePat
+}
+
+// return a copy of an existing time object
+Thyme.prototype.clone = function() {
+  return Object.assign(Object.create(Thyme.prototype), this);
 }
 
 // set time structure to specified time in milliseconds
@@ -119,6 +130,7 @@ Thyme.prototype.formatDateTime = function() {
 
 module.exports = {
   parseTime: parseTime,
+  parseTimeRelaxed: parseTimeRelaxed,
   makeTime: makeTime,
   makeTimeNow: makeTimeNow
 };

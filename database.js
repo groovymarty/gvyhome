@@ -34,18 +34,18 @@ function validateRecord(rec) {
 // if new day created, use specified initial state or empty state if none specified
 function findOrAddDay(tm, initState) {
   if (!years[tm.year]) {
-    years[tm.year] = {months: [], tm: Object.assign({}, tm)};
+    years[tm.year] = {months: [], tm: tm.clone()};
   }
   const year = years[tm.year];
   if (!year.months[tm.month]) {
-    year.months[tm.month] = {days: [], tm: Object.assign({}, tm)};
+    year.months[tm.month] = {days: [], tm: tm.clone()};
   }
   const month = year.months[tm.month];
   if (!month.days[tm.day]) {
     // TODO: day should be a class with a constructor
     month.days[tm.day] = {
       recs: [],
-      tm: Object.assign({}, tm),
+      tm: tm.clone(),
       loaded: false,
       changed: false,
       version: 0,
@@ -231,6 +231,78 @@ function loadDays(tmStart, tmEnd) {
   return null;
 }
 
+// return sorted array of names in directory
+function readDir(dirPath) {
+  const names = [];
+  try {
+    const dir = fs.opendirSync(dirPath);
+    while (true) {
+      const dirent = dir.readSync();
+      if (!dirent) {
+        break;
+      }
+      names.push(dirent.name);
+    }
+    dir.closeSync();
+  } catch {}
+  names.sort();
+  return names;
+}
+
+// return first or last element of array
+// ignores undefined elements at beginning of array
+function firstOrLast(arr, wantFirst) {
+  if (wantFirst) {
+    return arr.find(elem => typeof elem !== 'undefined');
+  } else {
+    return arr[arr.length-1];
+  }
+}
+
+// find first or last day in database
+// return time object with that date
+// return null if database is empty
+function findFirstOrLastDay(wantFirst) {
+  let tm = null;
+  // first look at database files
+  let dirPath = "years";
+  const yearDir = firstOrLast(readDir(dirPath), wantFirst);
+  if (yearDir) {
+    dirPath = path.join(dirPath, yearDir);
+    const monthDir = firstOrLast(readDir(dirPath), wantFirst);
+    if (monthDir) {
+      dirPath = path.join(dirPath, monthDir);
+      const dayFile = firstOrLast(readDir(dirPath), wantFirst);
+      if (dayFile) {
+        const dayBase = path.basename(dayFile, ".json");
+        tm = thyme.parseTimeRelaxed(yearDir+"-"+monthDir+"-"+dayBase);
+      }
+    }
+  }
+  // then look at database in memory
+  const year = firstOrLast(years, wantFirst);
+  if (year) {
+    const month = firstOrLast(year.months, wantFirst);
+    if (month) {
+      const day = firstOrLast(month.days, wantFirst);
+      if (day) {
+        if (!tm || (wantFirst ? day.tm.ms < tm.ms : day.tm.ms > tm.ms)) {
+          tm = day.tm;
+        }
+      }
+    }
+  }
+  return tm;
+}
+
+function findFirstDay() {
+  return findFirstOrLastDay(true);
+}
+
+function findLastDay() {
+  return findFirstOrLastDay(false);
+}
+
 // given initial state, apply all records in day and return final state
 // returns new state object
 function reduceDay(day, initState) {
@@ -300,6 +372,8 @@ module.exports = {
   latestRecs: latestRecs,
   writeAllChanges: writeAllChanges,
   loadDays: loadDays,
+  findFirstDay: findFirstDay,
+  findLastDay: findLastDay,
   sweepDays: sweepDays,
   parseChanFilter: parseChanFilter,
   queryChans: queryChans

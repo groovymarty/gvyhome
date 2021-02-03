@@ -34,11 +34,20 @@ app.post("/gvyhome/data", function(req, res) {
   }
 });
 
+// parameter helpers
+function parseStartTime(t) {
+  return t ? thyme.parseTimeRelaxed(t) : db.findFirstDay();
+}
+
+function parseEndTime(t) {
+  return t ? thyme.parseTimeRelaxed(t) : db.findLastDay();
+}
+
 // operations
 app.get("/gvyhome/op/loaddays", function(req, res) {
   let errMsg = "";
-  const tmStart = thyme.parseTime((req.query.start || "") + " 00:00:00.000");
-  const tmEnd = thyme.parseTime((req.query.end || "") + " 00:00:00.000");
+  const tmStart = parseStartTime(req.query.start);
+  const tmEnd = parseEndTime(req.query.end);
   if (!tmStart) {
     errMsg = "bad start time";
   } else if (!tmEnd) {
@@ -54,8 +63,8 @@ app.get("/gvyhome/op/loaddays", function(req, res) {
 
 app.get("/gvyhome/op/sweepdays", function(req, res) {
   let errMsg = "";
-  const tmStart = thyme.parseTime((req.query.start || "") + " 00:00:00.000");
-  const tmEnd = thyme.parseTime((req.query.end || "") + " 00:00:00.000");
+  const tmStart = parseStartTime(req.query.start);
+  const tmEnd = parseEndTime(req.query.end);
   if (!tmStart) {
     errMsg = "bad start time";
   } else if (!tmEnd) {
