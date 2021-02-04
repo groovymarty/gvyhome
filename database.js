@@ -111,10 +111,15 @@ function cleanRecord(rec) {
 }
 
 // return cleaned up copy of day object
-function cleanDay(day) {
+// apply optional filter to record array
+function cleanDay(day, recFilter) {
+  let recs = day.recs;
+  if (recFilter) {
+    recs = recs.filter(recFilter);
+  }
   return {
     t: day.t,
-    recs: day.recs.map(cleanRecord),
+    recs: recs.map(cleanRecord),
     initState: day.initState
   }
 }
@@ -416,9 +421,23 @@ function sweepDays(tmStart, tmEnd) {
   return null;
 }
 
-// parse channel filter
-// return filter object or null if invalid
-function parseChanFilter(str) {
+// parse source filter
+// return filter function or null if invalid
+function parseSrcFilter(str) {
+  // verify only legal characters
+  // source names can have alphanumerics and dots
+  // commas and stars are also valid at this point
+  if (str.match(/^[a-zA-Z0-9.,*]*$/)) {
+    // split on commas, convert each name to a RegExp object
+    const regExps = str.split(",").map(name => {
+      // replace every star with character class star
+      const pattern = "^" + name.replace(/\*/g, "[a-zA-Z0-9.]*") + "$";
+      //console.log("src filter pattern is", pattern);
+      return new RegExp(pattern);
+    });
+    // return function that returns true if any regex matches record source
+    return rec => regExps.some(regExp => regExp.test(rec.src))
+  }
   return null;
 }
 
@@ -430,7 +449,7 @@ function queryDays(params) {
   let result = [];
   while (tm.ms <= params.tmEnd.ms) {
     const day = lazyLoadDay(findOrAddDay(tm));
-    result.push(cleanDay(day));
+    result.push(cleanDay(day, params.srcFilter));
     tm.addDays(1);
   }
   return result;
@@ -448,6 +467,6 @@ module.exports = {
   findFirstDay: findFirstDay,
   findLastDay: findLastDay,
   sweepDays: sweepDays,
-  parseChanFilter: parseChanFilter,
+  parseSrcFilter: parseSrcFilter,
   queryDays: queryDays
 };

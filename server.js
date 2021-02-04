@@ -42,18 +42,21 @@ app.post("/gvyhome/data", function(req, res) {
 // return null if success, else return error message string
 
 // parse start time
-// default is first day in database
-function parseStartTime(query, params) {
+// if wide=true, default to first day in database
+// otherwise default to today
+function parseStartTime(query, params, wide) {
   if (query.start) {
     params.tmStart = thyme.parseTimeRelaxed(query.start);
     if (!params.tmStart) {
       return "bad start time";
     }
-  } else {
+  } else if (wide) {
     params.tmStart = db.findFirstDay();
     if (!params.tmStart) {
       return "no first day";
     }
+  } else {
+    params.tmStart = thyme.makeTimeNow().setMidnight();
   }
   // success
   return null;
@@ -61,8 +64,10 @@ function parseStartTime(query, params) {
 
 // parse end time or add ndays to start time
 // end time is inclusive so ndays cannot be zero
-// default is last day in database
-function parseEndTime(query, params) {
+// if wide=true, default to last day in database
+// otherwise default to start time
+// assume parseStartTime was called first
+function parseEndTime(query, params, wide) {
   if (query.end) {
     params.tmEnd = thyme.parseTimeRelaxed(query.end);
     if (!params.tmEnd) {
@@ -73,23 +78,24 @@ function parseEndTime(query, params) {
     if (!nDays || nDays < 0) {
       return "bad ndays";
     }
-    // assume you called parseStartTime first
     params.tmEnd = params.tmStart.clone().addDays(nDays-1);
-  } else {
+  } else if (wide) {
     params.tmEnd = db.findLastDay();
     if (!params.tmEnd) {
       return "no last day";
     }
+  } else {
+    params.tmEnd = params.tmStart;
   }
   // success
   return null;
 }
 
-function parseChanFilter(query, params) {
-  if (query.chans) {
-    params.chanFilter = db.parseChanFilter(query.chans);
-    if (!params.chanFilter) {
-      return "bad channel filter";
+function parseSrcFilter(query, params) {
+  if (query.src) {
+    params.srcFilter = db.parseSrcFilter(query.src);
+    if (!params.srcFilter) {
+      return "bad source filter";
     }
   }
   // success
@@ -99,7 +105,7 @@ function parseChanFilter(query, params) {
 // operations
 app.get("/gvyhome/op/loaddays", function(req, res) {
   const params = {};
-  const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params);
+  const errMsg = parseStartTime(req.query, params, true) || parseEndTime(req.query, params, true);
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
@@ -110,7 +116,7 @@ app.get("/gvyhome/op/loaddays", function(req, res) {
 
 app.get("/gvyhome/op/sweepdays", function(req, res) {
   const params = {};
-  const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params);
+  const errMsg = parseStartTime(req.query, params, true) || parseEndTime(req.query, params, true);
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
@@ -128,23 +134,28 @@ app.get("/gvyhome/op/writeallchanges", function(req, res) {
 
 // queries
 app.get("/gvyhome/data/latest", function(req, res) {
-  res.status(200).json(db.latestRecs).end();
+  res.status(200).json(db.latestRecs);
 });
 
 app.get("/gvyhome/data/today", function(req, res) {
   const today = thyme.makeTimeNow().setMidnight();
   const params = {tmStart: today, tmEnd: today};
-  res.status(200).json(db.queryDays(params));
+  const errMsg = parseSrcFilter(req.query, params);
+  if (errMsg) {
+    res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).json(db.queryDays(params));
+  }
 });
 
 app.get("/gvyhome/data/days", function(req, res) {
   const params = {};
   const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params) ||
-                 parseChanFilter(req.query, params);
+                 parseSrcFilter(req.query, params);
   if (errMsg) {
     res.status(400).send(errMsg).end();
   } else {
-    res.status(200).json(db.queryDays(params)).end();    
+    res.status(200).json(db.queryDays(params));
   }
 });
 
