@@ -7,6 +7,9 @@ const db = require("./database.js");
 const thyme = require("./thyme.js");
 const weather = require("./weather.js");
 
+// recover latest state from database
+db.initLatest();
+
 // read data journal
 // data journal holds recently posted records
 // at end of day we write the records to day file and clear the journal

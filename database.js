@@ -133,6 +133,21 @@ function recsAreEqual(r1, r2) {
   }
 }
 
+// initialize latest with last known initial state
+// do this at startup before reading data journal
+function initLatest() {
+  // what day to load?  assume today
+  let tm = thyme.makeTimeNow();
+  // if database ends before today, use last day in database
+  const tmLastDay = findLastDay();
+  if (tmLastDay && tmLastDay.ms < tm.ms) {
+    tm = tmLastDay;
+  }
+  // copy that day's initial state to latest
+  const day = lazyLoadDay(findOrAddDay(tm));
+  Object.assign(latestRecs, day.initState);
+}
+
 // add record to latest
 // use this mainly for incoming live records
 function addLatest(rec) {
@@ -425,6 +440,7 @@ module.exports = {
   validateRecord: validateRecord,
   cleanRecord: cleanRecord,
   addRecord: addRecord,
+  initLatest: initLatest,
   addLatest: addLatest,
   latestRecs: latestRecs,
   writeAllChanges: writeAllChanges,
