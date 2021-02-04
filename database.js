@@ -31,7 +31,7 @@ function validateRecord(rec) {
 }
 
 // return day for specified timestamp, create if necessary
-// if new day created, use specified initial state or empty state if none specified
+// if new day created, use copy of specified initial state
 function findOrAddDay(tm, initState) {
   if (!years[tm.year]) {
     years[tm.year] = {months: [], tm: tm.clone().setMidnight()};
@@ -51,7 +51,7 @@ function findOrAddDay(tm, initState) {
       loaded: false,
       changed: false,
       version: 0,
-      initState: initState || {}
+      initState: Object.assign({}, initState)
     };
   }
   return month.days[tm.day];
@@ -191,6 +191,7 @@ function writeDayFile(day) {
   const dayPath = makeDayPath(day.tm);
   const dayToFile = {
     recs: day.recs.map(cleanRecord),
+    t: day.t,
     version: day.version,
     initState: day.initState
   };
@@ -365,12 +366,31 @@ function statesAreEqual(s1, s2) {
 
 // sweep database and update/fix things:
 // - recomputes initial state for each day
+// - applies migrations
 function sweepDays(tmStart, tmEnd) {
   console.log("sweepDays", tmStart.formatDate(), "to", tmEnd.formatDate());
   const tm = thyme.makeTime(tmStart.ms);
   let state = {};
   while (tm.ms <= tmEnd.ms) {
-    const day = loadDay(findOrAddDay(tm));
+    const day = lazyLoadDay(findOrAddDay(tm));
+    // migrations
+    day.recs.forEach(rec => {
+      // change plain boot to boot.who
+      if (rec.src === "boot" && rec.who) {
+        rec.src = rec.who+".boot";
+        delete rec.who;
+        day.changed = true;
+        console.log("fixed boot record", rec);
+      }
+      // change tst.foot to tst.foo
+      if (rec.src === "tst" && 'foot' in rec) {
+        rec.foo = rec.foot;
+        delete rec.foot;
+        day.changed = true;
+        console.log("fixed test record", rec);
+      }
+    })
+    // correct initial state if necessary
     if (!statesAreEqual(state, day.initState)) {
       day.initState = state;
       day.changed = true;
