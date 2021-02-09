@@ -161,13 +161,14 @@ function addLatest(rec) {
 
 // write all changed records to files
 // if force is true, write day file even if unchanged
-// if purge is true, delete days from memory prior to today
+// if purge is true, delete days from memory other than today
 function writeAllChanges(options) {
   options = options || {};
   const force = options.force;
   const purge = options.purge;
   console.log("writeAllChanges", force?"force":"", purge?"purge":"");
   const today = thyme.makeTimeNow().setMidnight();
+  const tomorrow = today.clone().addDays(1);
   years.forEach(year => {
     year.months.forEach(month => {
       month.days.forEach((day, iday) => {
@@ -175,7 +176,7 @@ function writeAllChanges(options) {
           day.version += 1;
           writeDayFile(day);
           day.changed = false;
-          if (purge && day.tm.ms < today.ms) {
+          if (purge && (day.tm.ms < today.ms || day.tm.ms >= tomorrow.ms)) {
             delete month.days[iday];
           }
         }
@@ -393,7 +394,10 @@ function sweepDays(tmStart, tmEnd) {
   let state = {};
   while (tm.ms <= tmEnd.ms) {
     const day = lazyLoadDay(findOrAddDay(tm));
-    // migrations
+    // migrations go here..
+    /**
+     * example migrations
+     * 
     day.recs.forEach(rec => {
       // change plain boot to boot.who
       if (rec.src === "boot" && rec.who) {
@@ -409,7 +413,8 @@ function sweepDays(tmStart, tmEnd) {
         day.changed = true;
         console.log("fixed test record", rec);
       }
-    })
+    });
+    */
     // correct initial state if necessary
     if (!statesAreEqual(state, day.initState)) {
       day.initState = state;
@@ -422,37 +427,171 @@ function sweepDays(tmStart, tmEnd) {
 }
 
 // parse source filter
-// return filter function or null if invalid
+// source filter is comma-separated list of source names
+// valid chars for source name are alphanumeric and dot
+// source names can also have wildcard stars
+// return filter function or error message string if invalid
 function parseSrcFilter(str) {
   // verify only legal characters
-  // source names can have alphanumerics and dots
-  // commas and stars are also valid at this point
-  if (str.match(/^[a-zA-Z0-9.,*]*$/)) {
+  if (typeof str === 'string' && str.match(/^[A-Za-z0-9.*,]*$/)) {
     // split on commas, convert each name to a RegExp object
     const regExps = str.split(",").map(name => {
       // replace every star with character class star
-      const pattern = "^" + name.replace(/\*/g, "[a-zA-Z0-9.]*") + "$";
-      //console.log("src filter pattern is", pattern);
+      const pattern = "^" + name.replace(/\*/g, "[A-Za-z0-9.]*") + "$";
       return new RegExp(pattern);
     });
     // return function that returns true if any regex matches record source
     return rec => regExps.some(regExp => regExp.test(rec.src))
+  } else {
+    return "invalid character";
   }
-  return null;
 }
 
 // return result for days query
-// params must include tmStart, tmEnd and optional chanFilter
+// params must include tmStart, tmEnd and optional srcFilter
 function queryDays(params) {
   console.log("queryDays", params.tmStart.formatDate(), "to", params.tmEnd.formatDate());
   const tm = thyme.makeTime(params.tmStart.ms);
-  let result = [];
+  const result = [];
   while (tm.ms <= params.tmEnd.ms) {
     const day = lazyLoadDay(findOrAddDay(tm));
     result.push(cleanDay(day, params.srcFilter));
     tm.addDays(1);
   }
   return result;
+}
+
+// channel, used to prepare result for chans query
+// use apply to pass records to the channel
+// result is array of values for a particular property of those records,
+// alternating with duration for that value.
+// optimization for boolean values: result is initial value followed
+// by durations. no need for subsequent values since they can be inferred.
+function Channel(maskStr) {
+  this.maskStr = maskStr;
+  this.result = [];
+}
+
+Channel.prototype.apply = function(value) {
+  this.result.push(value);
+}
+
+// channel maker
+function ChanMaker(srcRegExp, propName, maskStr) {
+  this.srcRegExp = srcRegExp;
+  this.propName = propName;
+  this.maskStr = maskStr;
+  this.channels = {};
+  this.srcNames = [];
+}
+
+// apply record to all channels for this maker
+ChanMaker.prototype.apply = function(rec, result) {
+  // does source match my reg ex?
+  if (this.srcRegExp.test(rec.src)) {
+    // yes, does record have my property?
+    // later, if propName is empty then use occurrence count
+    if (this.propName in rec) {
+      // create channel when source is first seen
+      if (!this.channels[rec.src]) {
+        this.channels[rec.src] = new Channel(this.maskStr);
+        this.srcNames.push(rec.src);
+      }
+      // apply value to channel
+      this.channels[rec.src].apply(rec[this.propName]);
+    }
+  }
+}
+
+// channel set
+function ChanSet() {
+  this.makers = [];
+}
+
+// add a maker
+ChanSet.prototype.addMaker = function(maker) {
+  this.makers.push(maker);
+};
+
+// apply record to all channel makers
+ChanSet.prototype.apply = function(rec) {
+  this.makers.forEach(maker => maker.apply(rec));
+};
+
+// get query result
+ChanSet.prototype.getResult = function() {
+  const result = {};
+  this.makers.forEach(maker => {
+    maker.srcNames.forEach(src => {
+      const channel = maker.channels[src];
+      const key = src + ")" + maker.propName + channel.maskStr;
+      result[key] = channel.result;
+    });
+  });
+  return result;
+};
+
+// parse channel set definition
+// channel set is comma-separated list of channels
+// channel format is source name ) property name ^ bits
+// the last part, hat bits, is an optional bitmask given as a decimal integer
+// valid chars for source name are alphanumeric and dot
+// source names can also have wildcard stars
+// valid chars for property name are alphanumeric and underscore
+// multiple channels for same source can be specifed like this: ow1)temp)humid
+// multiple bitmasks for same property can be specified like this: ma1)inp^1^2^4
+// return channel set object or error message string if invalid
+function parseChanSet(str) {
+  const chanSet = new ChanSet();
+  let errorMsg = "";
+  // verify only legal characters
+  if (typeof str === 'string' && str.match(/^[A-Za-z0-9.*,)_^]*$/)) {
+    // split on commas
+    str.split(",").forEach(ss => {
+      // split on close paren, must be at least one
+      const ssParts = ss.split(")");
+      const srcName = ssParts.shift();
+      if (ssParts.length) {
+        // create RegExp for source name
+        // replace every star with character class star
+        const pattern = "^" + srcName.replace(/\*/g, "[A-Za-z0-9.]*") + "$";
+        const srcRegExp = new RegExp(pattern);
+        // process all channels for this source
+        ssParts.forEach(chanStr => {
+          // split on hat, optional
+          const chanParts = chanStr.split("^");
+          const propName = chanParts.shift();
+          if (chanParts.length) {
+            // add maker for each hat string
+            chanParts.forEach(maskStr => {
+              chanSet.addMaker(new ChanMaker(srcRegExp, propName, "^"+maskStr));
+            });
+          } else {
+            // no hat string
+            chanSet.addMaker(new ChanMaker(srcRegExp, propName, ""));
+          }
+        });
+      } else {
+        errorMsg = "close paren missing";
+      }
+    });
+  } else {
+    errorMsg = "invalid character";
+  }
+  return errorMsg || chanSet;
+}
+
+// return result for chans query
+// params must include tmStart, tmEnd and chanSet
+function queryChans(params) {
+  console.log("queryChans", params.tmStart.formatDate(), "to", params.tmEnd.formatDate());
+  const tm = thyme.makeTime(params.tmStart.ms);
+  while (tm.ms <= params.tmEnd.ms) {
+    const day = lazyLoadDay(findOrAddDay(tm));
+    day.recs.forEach(rec => params.chanSet.apply(rec));
+    tm.addDays(1);
+  }
+  return params.chanSet.getResult();
 }
 
 module.exports = {
@@ -468,5 +607,7 @@ module.exports = {
   findLastDay: findLastDay,
   sweepDays: sweepDays,
   parseSrcFilter: parseSrcFilter,
-  queryDays: queryDays
+  queryDays: queryDays,
+  parseChanSet: parseChanSet,
+  queryChans: queryChans
 };

@@ -91,12 +91,29 @@ function parseEndTime(query, params, wide) {
   return null;
 }
 
+// parse source filter (optional)
 function parseSrcFilter(query, params) {
   if (query.src) {
-    params.srcFilter = db.parseSrcFilter(query.src);
-    if (!params.srcFilter) {
-      return "bad source filter";
+    const result = db.parseSrcFilter(query.src);
+    if (typeof result === 'string') {
+      return "bad source filter: "+result;
     }
+    params.srcFilter = result;
+  }
+  // success
+  return null;
+}
+
+// parse channel set (required)
+function parseChanSet(query, params) {
+  if (query.ch) {
+    const result = db.parseChanSet(query.ch);
+    if (typeof result === 'string') {
+      return "bad channel set: "+result;
+    }
+    params.chanSet = result;
+  } else {
+    return "channel set missing";
   }
   // success
   return null;
@@ -156,6 +173,17 @@ app.get("/gvyhome/data/days", function(req, res) {
     res.status(400).send(errMsg).end();
   } else {
     res.status(200).json(db.queryDays(params));
+  }
+});
+
+app.get("/gvyhome/data/chans", function(req, res) {
+  const params = {};
+  const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params) ||
+                 parseChanSet(req.query, params);
+  if (errMsg) {
+    res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).json(db.queryChans(params));
   }
 });
 
