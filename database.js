@@ -461,49 +461,103 @@ function queryDays(params) {
   return result;
 }
 
-// channel, used to prepare result for chans query
-// use apply to pass records to the channel
-// result is array of values for a particular property of those records,
-// alternating with duration for that value.
-// optimization for boolean values: result is initial value followed
-// by durations. no need for subsequent values since they can be inferred.
-function Channel(maskStr) {
-  this.maskStr = maskStr;
-  this.result = [];
+// return true if argument is a power of 2
+function isPowerOf2(x) {
+  // if x is NZ and a power of 2, then x-1 flips all bits in the binary value of x
+  // therefore x & (x-1) will be all zeros if all bits flip, assuming x is NZ
+  return x && !(x & (x-1));
 }
 
-Channel.prototype.apply = function(value) {
-  this.result.push(value);
+// channel, collects query result for a particular source name and property name
+// use apply to pass values to the channel, and associated time in milliseconds
+// mask, if specified in constructor, is applied to each value
+// result is array of values alternating with duration for each value
+// optimization for one bit mask: result is initial value followed
+// by durations. no need for subsequent values since they can be inferred.
+function Channel(maskStr, initVal, startMs) {
+  this.maskStr = maskStr;
+  // remove initial ^ from mask string and convert to integer
+  this.mask = parseInt(maskStr.substring(1)) || 0;
+  // one bit mask?
+  this.isOneBit = isPowerOf2(this.mask);
+  this.result = [];
+  this.lastVal = this.prepValue(initVal);
+  this.lastMs = startMs;
+  this.nOccur = 0;
+  // push initial value (even if one bit mask)
+  this.result.push(this.lastVal);
+}
+
+// prepare value by anding with mask if number
+Channel.prototype.prepValue = function(val) {
+  return (typeof val === 'number' && this.maskStr) ? (val & this.mask) : val;
+}
+
+// apply next value to channel
+// if value changed from last time, add to result
+// also compute duration for each value
+Channel.prototype.apply = function(val, ms) {
+  const maskedVal = this.prepValue(val);
+  // detect change
+  if (maskedVal !== this.lastVal) {
+    this.nOccur += 1;
+    // push duration of last value
+    this.result.push(ms - this.lastMs);
+    // push new value, but omit if one bit mask
+    if (!this.isOneBit) {
+      this.result.push(maskedVal);
+    }
+    this.lastVal = maskedVal;
+    this.lastMs = ms;
+  }
 }
 
 // channel maker
+// creates channels for sources that match reg ex
 function ChanMaker(srcRegExp, propName, maskStr) {
   this.srcRegExp = srcRegExp;
   this.propName = propName;
   this.maskStr = maskStr;
+  // key is source name, value is channel
   this.channels = {};
+  // array of source names
   this.srcNames = [];
+  this.initState = {};
+  this.startMs = 0;
 }
+
+// set initial state and starting time
+// must be called before applyng any records
+ChanMaker.prototype.setInitState = function(initState, startMs) {
+  this.initState = initState;
+  this.startMs = startMs;
+};
 
 // apply record to all channels for this maker
 ChanMaker.prototype.apply = function(rec, result) {
   // does source match my reg ex?
   if (this.srcRegExp.test(rec.src)) {
     // yes, does record have my property?
-    // later, if propName is empty then use occurrence count
-    if (this.propName in rec) {
+    if (!this.propName || this.propName in rec) {
       // create channel when source is first seen
       if (!this.channels[rec.src]) {
-        this.channels[rec.src] = new Channel(this.maskStr);
+        // get initial value from initial state, default to 0
+        const initRec = this.initState[rec.src] || {};
+        const initVal = initRec[this.propName] || 0;
+        this.channels[rec.src] = new Channel(this.maskStr, initVal, this.startMs);
         this.srcNames.push(rec.src);
       }
-      // apply value to channel
-      this.channels[rec.src].apply(rec[this.propName]);
+      const channel = this.channels[rec.src];
+      // if propName is empty then use occurrence count
+      // this lets you query records that don't have any properties, like boot records
+      const val = this.propName ? rec[this.propName] : channel.nOccur+1;
+      this.channels[rec.src].apply(val, rec.tm.ms);
     }
   }
 }
 
 // channel set
+// basically just an array of channel makers
 function ChanSet() {
   this.makers = [];
 }
@@ -511,6 +565,11 @@ function ChanSet() {
 // add a maker
 ChanSet.prototype.addMaker = function(maker) {
   this.makers.push(maker);
+};
+
+// set initial state and starting time
+ChanSet.prototype.setInitState = function(initState, startMs) {
+  this.makers.forEach(maker => maker.setInitState(initState, startMs));
 };
 
 // apply record to all channel makers
@@ -586,12 +645,24 @@ function parseChanSet(str) {
 function queryChans(params) {
   console.log("queryChans", params.tmStart.formatDate(), "to", params.tmEnd.formatDate());
   const tm = thyme.makeTime(params.tmStart.ms);
+  const chanSet = params.chanSet;
+  let firstDay = null;
   while (tm.ms <= params.tmEnd.ms) {
     const day = lazyLoadDay(findOrAddDay(tm));
-    day.recs.forEach(rec => params.chanSet.apply(rec));
+    // set initial state from first day
+    if (!firstDay) {
+      firstDay = day;
+      chanSet.setInitState(day.initState, day.tm.ms);
+    }
+    // apply all records for this day
+    day.recs.forEach(rec => chanSet.apply(rec));
+    // advance to next day
     tm.addDays(1);
   }
-  return params.chanSet.getResult();
+  return {
+    t: firstDay ? firstDay.t : params.tmStart.formatDateTime(),
+    result: chanSet.getResult()
+  };
 }
 
 module.exports = {
