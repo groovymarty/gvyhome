@@ -665,6 +665,28 @@ function queryChans(params) {
   };
 }
 
+// return database status
+function getStatus() {
+  const firstDay = findFirstDay();
+  const lastDay = findLastDay();
+  let nDays = 0;
+  let nRecs = 0;
+  years.forEach(year => {
+    year.months.forEach(month => {
+      month.days.forEach(day => {
+        nDays += 1;
+        nRecs += day.recs.length;
+      });
+    });
+  });
+  return {
+    firstDay: firstDay ? firstDay.formatDateTime() : "",
+    lastDay: lastDay ? lastDay.formatDateTime() : "",
+    nDaysInMem: nDays,
+    nRecsInMem: nRecs
+  };
+}
+
 module.exports = {
   validateRecord: validateRecord,
   cleanRecord: cleanRecord,
@@ -680,5 +702,6 @@ module.exports = {
   parseSrcFilter: parseSrcFilter,
   queryDays: queryDays,
   parseChanSet: parseChanSet,
-  queryChans: queryChans
+  queryChans: queryChans,
+  getStatus: getStatus
 };

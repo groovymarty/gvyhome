@@ -187,6 +187,11 @@ app.get("/gvyhome/data/chans", function(req, res) {
   }
 });
 
+// status
+app.get("/gvyhome/status", function(req, res) {
+  res.status(200).json(db.getStatus());
+});
+
 var port = 8082;
 app.listen(port, function() {
   console.log("Server listening on port "+port);
