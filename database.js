@@ -176,9 +176,9 @@ function writeAllChanges(options) {
           day.version += 1;
           writeDayFile(day);
           day.changed = false;
-          if (purge && (day.tm.ms < today.ms || day.tm.ms >= tomorrow.ms)) {
-            delete month.days[iday];
-          }
+        }
+        if (purge && (day.tm.ms < today.ms || day.tm.ms >= tomorrow.ms)) {
+          delete month.days[iday];
         }
       });
     });
