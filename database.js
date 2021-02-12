@@ -426,6 +426,13 @@ function sweepDays(tmStart, tmEnd) {
   return null;
 }
 
+// return result for latest query
+function queryLatest() {
+  return {
+    latest: latestRecs
+  };
+}
+
 // parse source filter
 // source filter is comma-separated list of source names
 // valid chars for source name are alphanumeric and dot
@@ -458,7 +465,9 @@ function queryDays(params) {
     result.push(cleanDay(day, params.srcFilter));
     tm.addDays(1);
   }
-  return result;
+  return {
+    days: result
+  }
 }
 
 // return true if argument is a power of 2
@@ -579,12 +588,16 @@ ChanSet.prototype.apply = function(rec) {
 
 // get query result
 ChanSet.prototype.getResult = function() {
-  const result = {};
+  const result = [];
   this.makers.forEach(maker => {
     maker.srcNames.forEach(src => {
       const channel = maker.channels[src];
-      const key = src + ")" + maker.propName + channel.maskStr;
-      result[key] = channel.result;
+      const id = src + ")" + maker.propName + channel.maskStr;
+      result.push({
+        id: id,
+        isOneBit: channel.isOneBit,
+        values: channel.result
+      });
     });
   });
   return result;
@@ -661,7 +674,7 @@ function queryChans(params) {
   }
   return {
     t: firstDay ? firstDay.t : params.tmStart.formatDateTime(),
-    result: chanSet.getResult()
+    chans: chanSet.getResult()
   };
 }
 
@@ -693,12 +706,12 @@ module.exports = {
   addRecord: addRecord,
   initLatest: initLatest,
   addLatest: addLatest,
-  latestRecs: latestRecs,
   writeAllChanges: writeAllChanges,
   loadDays: loadDays,
   findFirstDay: findFirstDay,
   findLastDay: findLastDay,
   sweepDays: sweepDays,
+  queryLatest: queryLatest,
   parseSrcFilter: parseSrcFilter,
   queryDays: queryDays,
   parseChanSet: parseChanSet,

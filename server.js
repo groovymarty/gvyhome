@@ -151,7 +151,7 @@ app.get("/gvyhome/op/writeallchanges", function(req, res) {
 
 // queries
 app.get("/gvyhome/data/latest", function(req, res) {
-  res.status(200).json(db.latestRecs);
+  res.status(200).json(db.queryLatest());
 });
 
 app.get("/gvyhome/data/today", function(req, res) {
