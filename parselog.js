@@ -6,6 +6,7 @@ const outFile = process.argv[iarg+1] || "recs";
 
 const fs = require('fs');
 const lines = fs.readFileSync(inFile, {encoding: "utf-8"}).split("\n");
+console.log("read", lines.length, "lines");
 const things = {
     "HEAT WH": 1,
     "HEAT MBR": 2,
@@ -21,7 +22,7 @@ const things = {
 let inp = 0;
 const recs = [];
 lines.forEach(line => {
-    const mr = line.match(/.* maryanne maryanne\.sh\[\d*\]: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d.\d{3,}): ([A-Z0-9 ]*) is ([ONF]*).*/);
+    const mr = line.match(/.* maryanne1 maryanne\.sh\[\d*\]: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d.\d{3}.*): ([A-Z0-9 ]*) is ([ONF]*).*/);
     if (mr) {
         const t = mr[1];
         const thing = mr[2];
