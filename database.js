@@ -481,8 +481,8 @@ function isPowerOf2(x) {
 // use apply to pass values to the channel, and associated time in milliseconds
 // mask, if specified in constructor, is applied to each value
 // result is array of values alternating with duration for each value
-// optimization for one bit mask: result is initial value followed
-// by durations. no need for subsequent values since they can be inferred.
+// for one bit mask, result omits values since they can be inferred
+// because there are only two possible values and the initial value is given
 function Channel(maskStr, initVal, startMs) {
   this.maskStr = maskStr;
   // remove initial ^ from mask string and convert to integer
@@ -490,11 +490,10 @@ function Channel(maskStr, initVal, startMs) {
   // one bit mask?
   this.isOneBit = isPowerOf2(this.mask);
   this.result = [];
-  this.lastVal = this.prepValue(initVal);
+  this.initVal = this.prepValue(initVal);
+  this.lastVal = this.initVal;
   this.lastMs = startMs;
   this.nOccur = 0;
-  // push initial value (even if one bit mask)
-  this.result.push(this.lastVal);
 }
 
 // prepare value by anding with mask if number
@@ -505,17 +504,19 @@ Channel.prototype.prepValue = function(val) {
 // apply next value to channel
 // if value changed from last time, add to result
 // also compute duration for each value
+// pass null value to flush last record at end of data
 Channel.prototype.apply = function(val, ms) {
   const maskedVal = this.prepValue(val);
   // detect change
   if (maskedVal !== this.lastVal) {
     this.nOccur += 1;
-    // push duration of last value
-    this.result.push(ms - this.lastMs);
-    // push new value, but omit if one bit mask
+    // push last value, but omit if one bit mask
     if (!this.isOneBit) {
-      this.result.push(maskedVal);
+      this.result.push(this.lastVal);
     }
+    // push duration
+    this.result.push(ms - this.lastMs);
+    // set current value
     this.lastVal = maskedVal;
     this.lastMs = ms;
   }
@@ -565,6 +566,11 @@ ChanMaker.prototype.apply = function(rec, result) {
   }
 }
 
+// flush last record
+ChanMaker.prototype.flush = function(tmEndpoint) {
+  this.srcNames.forEach(src => this.channels[src].apply(null, tmEndpoint.ms));
+};
+
 // channel set
 // basically just an array of channel makers
 function ChanSet() {
@@ -586,6 +592,11 @@ ChanSet.prototype.apply = function(rec) {
   this.makers.forEach(maker => maker.apply(rec));
 };
 
+// flush last record
+ChanSet.prototype.flush = function(tmEndpoint) {
+  this.makers.forEach(maker => maker.flush(tmEndpoint));
+};
+
 // get query result
 ChanSet.prototype.getResult = function() {
   const result = [];
@@ -596,6 +607,7 @@ ChanSet.prototype.getResult = function() {
       result.push({
         id: id,
         isOneBit: channel.isOneBit,
+        initVal: channel.initVal,
         values: channel.result
       });
     });
@@ -672,6 +684,10 @@ function queryChans(params) {
     // advance to next day
     tm.addDays(1);
   }
+  // flush last record
+  // use tm here to compute the correct interval for the last record
+  // tm has been advanced to the next day after the selected range of days
+  chanSet.flush(tm);
   return {
     t: firstDay ? firstDay.t : params.tmStart.formatDateTime(),
     chans: chanSet.getResult()
