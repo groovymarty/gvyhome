@@ -477,28 +477,46 @@ function isPowerOf2(x) {
   return x && !(x & (x-1));
 }
 
+// calculate shift count for a mask
+// shift count is number of right shifts to get lowest order 1 into bit position 0
+// if mask is 0 return 0
+function calcShiftCount(x) {
+  x = x || 1;
+  let n = 0;
+  while (!(x & 1)) {
+    x >>= 1;
+    n += 1;
+  }
+  return n;
+}
+
 // channel, collects query result for a particular source name and property name
 // use apply to pass values to the channel, and associated time in milliseconds
 // mask, if specified in constructor, is applied to each value
-// result is array of values alternating with duration for each value
-// for one bit mask, result omits values since they can be inferred
-// because there are only two possible values and the initial value is given
+// query result is parallel arrays of values and duration for each value
+// for one bit mask the values array is not populated and the
+// duration array is on duration
 function Channel(maskStr, initVal, startMs) {
   this.maskStr = maskStr;
   // remove initial ^ from mask string and convert to integer
   this.mask = parseInt(maskStr.substring(1)) || 0;
+  this.shiftCount = calcShiftCount(this.mask);
   // one bit mask?
   this.isOneBit = isPowerOf2(this.mask);
-  this.result = [];
+  this.values = [];
+  this.durations = [];
   this.initVal = this.prepValue(initVal);
   this.lastVal = this.initVal;
   this.lastMs = startMs;
   this.nOccur = 0;
 }
 
-// prepare value by anding with mask if number
+// prepare value by anding with mask and right shifting
+// if value is not number or no mask specified, return value unchanged
 Channel.prototype.prepValue = function(val) {
-  return (typeof val === 'number' && this.maskStr) ? (val & this.mask) : val;
+  return (typeof val === 'number' && this.maskStr)
+    ? (val & this.mask) >> this.shiftCount
+    : val;
 }
 
 // apply next value to channel
@@ -510,12 +528,16 @@ Channel.prototype.apply = function(val, ms) {
   // detect change
   if (maskedVal !== this.lastVal) {
     this.nOccur += 1;
-    // push last value, but omit if one bit mask
-    if (!this.isOneBit) {
-      this.result.push(this.lastVal);
+    if (this.isOneBit) {
+      if (this.lastVal) {
+        // on-to-off transition, push on duration
+        this.durations.push(ms - this.lastMs)
+      }
+    } else {
+      // push last value and duration
+      this.values.push(this.lastVal);
+      this.durations.push(ms - this.lastMs);
     }
-    // push duration
-    this.result.push(ms - this.lastMs);
     // set current value
     this.lastVal = maskedVal;
     this.lastMs = ms;
@@ -608,7 +630,8 @@ ChanSet.prototype.getResult = function() {
         id: id,
         isOneBit: channel.isOneBit,
         initVal: channel.initVal,
-        values: channel.result
+        values: channel.values,
+        durations: channel.durations
       });
     });
   });
@@ -690,6 +713,7 @@ function queryChans(params) {
   chanSet.flush(tm);
   return {
     t: firstDay ? firstDay.t : params.tmStart.formatDateTime(),
+    totalMs: tm.ms - params.tmStart.ms,
     chans: chanSet.getResult()
   };
 }

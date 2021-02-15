@@ -165,6 +165,17 @@ app.get("/gvyhome/data/today", function(req, res) {
   }
 });
 
+app.get("/gvyhome/data/yesterday", function(req, res) {
+  const yesterday = thyme.makeTimeNow().setMidnight().addDays(-1);
+  const params = {tmStart: yesterday, tmEnd: yesterday};
+  const errMsg = parseSrcFilter(req.query, params);
+  if (errMsg) {
+    res.status(400).send(errMsg).end();
+  } else {
+    res.status(200).json(db.queryDays(params));
+  }
+});
+
 app.get("/gvyhome/data/days", function(req, res) {
   const params = {};
   const errMsg = parseStartTime(req.query, params) || parseEndTime(req.query, params) ||
