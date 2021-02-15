@@ -494,8 +494,9 @@ function calcShiftCount(x) {
 // use apply to pass values to the channel, and associated time in milliseconds
 // mask, if specified in constructor, is applied to each value
 // query result is parallel arrays of values and duration for each value
-// for one bit mask the values array is not populated and the
-// duration array is on duration
+// for one bit mask, each array element represents an off, off-to-on, on, on-to-off cycle
+// value is on time and duration is length of complete cycle
+// if initial state is on, first cycle starts immediately with zero off time
 function Channel(maskStr, initVal, startMs) {
   this.maskStr = maskStr;
   // remove initial ^ from mask string and convert to integer
@@ -508,6 +509,7 @@ function Channel(maskStr, initVal, startMs) {
   this.initVal = this.prepValue(initVal);
   this.lastVal = this.initVal;
   this.lastMs = startMs;
+  this.cycleStartMs = startMs;
   this.nOccur = 0;
 }
 
@@ -529,9 +531,14 @@ Channel.prototype.apply = function(val, ms) {
   if (maskedVal !== this.lastVal) {
     this.nOccur += 1;
     if (this.isOneBit) {
-      if (this.lastVal) {
-        // on-to-off transition, push on duration
-        this.durations.push(ms - this.lastMs)
+      if (!this.lastVal) {
+        // off-to-on transition, save cycle start time
+        this.cycleStartMs = this.lastMs;
+      } else {
+        // on-to-off transition, value is on time
+        this.values.push(ms - this.lastMs);
+        // push cycle duration
+        this.durations.push(ms - this.cycleStartMs);
       }
     } else {
       // push last value and duration
