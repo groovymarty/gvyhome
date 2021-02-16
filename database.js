@@ -732,11 +732,11 @@ function queryChans(params) {
     if (now.ms < tmEndpoint.ms) {
       if (now.ms >= lastRec.tm.ms) {
         // extend duration to actual time now
-        tm.setTime(now.ms);
+        tmEndpoint.setTime(now.ms);
       } else {
         // actual time now is out of range so ignore it
         // do not extend any durations
-        tm.setTime(lastRec.tm.ms);
+        tmEndpoint.setTime(lastRec.tm.ms);
       }
     }
   }
