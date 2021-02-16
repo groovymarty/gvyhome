@@ -744,7 +744,7 @@ function queryChans(params) {
   chanSet.flush(tmEndpoint);
   return {
     t: firstDay ? firstDay.t : params.tmStart.formatDateTime(),
-    totalMs: tm.ms - params.tmStart.ms,
+    totalMs: tmEndpoint.ms - params.tmStart.ms,
     chans: chanSet.getResult()
   };
 }
