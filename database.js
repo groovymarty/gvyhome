@@ -702,6 +702,7 @@ function queryChans(params) {
   const tm = thyme.makeTime(params.tmStart.ms);
   const chanSet = params.chanSet;
   let firstDay = null;
+  let lastRec = null;
   while (tm.ms <= params.tmEnd.ms) {
     const day = lazyLoadDay(findOrAddDay(tm));
     // set initial state from first day
@@ -711,13 +712,36 @@ function queryChans(params) {
     }
     // apply all records for this day
     day.recs.forEach(rec => chanSet.apply(rec));
+    // keep track of last record applied
+    if (day.recs.length) {
+      lastRec = day.recs[day.recs.length-1];
+    }
     // advance to next day
     tm.addDays(1);
   }
-  // flush last record
-  // use tm here to compute the correct interval for the last record
-  // tm has been advanced to the next day after the selected range of days
-  chanSet.flush(tm);
+  // determine endpoint time for last record flush
+  // this will affect duration of last record(s) reported
+  // extend durations to end of day unless changed below
+  const tmEndpoint = tm.clone();
+  const lastDayInDb = findLastDay();
+  // did we reach end of database?
+  if (lastRec && lastDayInDb && lastRec.tm.ms >= lastDayInDb.ms) {
+    // database has no future records
+    // is actual future still unknown?
+    const now = thyme.makeTimeNow();
+    if (now.ms < tmEndpoint.ms) {
+      if (now.ms >= lastRec.tm.ms) {
+        // extend duration to actual time now
+        tm.setTime(now.ms);
+      } else {
+        // actual time now is out of range so ignore it
+        // do not extend any durations
+        tm.setTime(lastRec.tm.ms);
+      }
+    }
+  }
+  // flush last record using endpoint time
+  chanSet.flush(tmEndpoint);
   return {
     t: firstDay ? firstDay.t : params.tmStart.formatDateTime(),
     totalMs: tm.ms - params.tmStart.ms,
