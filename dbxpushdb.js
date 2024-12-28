@@ -31,7 +31,8 @@ const fileInfo = {};
 // load info for all existing files in Dropbox
 function loadDbxFolder() {
   // this function processes the result of fileListFolder or fileListFolderContinue
-  function processListFolderResult(result) {
+  function processListFolderResult(response) {
+    result = response.result;
     result.entries.forEach(entry => {
       if (entry['.tag'] === "file") {
         // replace Dropbox path with local path
